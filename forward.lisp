@@ -5,9 +5,13 @@
 (defvar *dictionary* '()
   "actually a list of words.")
 (defvar *stack* '())
+(defvar *exit-flag* nil
+  "Can't think of a better way to leave the thing.")
 
 (defun stack-push (value)
   (push value *stack*))
+(defun stack-pop ()
+  (pop *stack*))
 (defun make-word (name code &optional (core nil))
   (let ((new-word name))
     (setf (get new-word 'name) name)
@@ -21,7 +25,7 @@
            (dolist (word *dictionary*)
              (when (eq name (car word))
                word)))
-         (find-word-from (name array-index) ; Support redifinition ?
+         (find-word-from (name array-index) ; Support redifinition but statically. Not all the word.
            (values name array-index))
          )
    (if array-index-p
@@ -29,19 +33,28 @@
        (find-word-from name array-index))))
 
 (defun forward ()
-  (loop
-     (let ((word (read #| Maybe this instead? (read *standard-input* t #\Space)|#)))
-       (if (eq word (intern "Q")) ; why can't I just do (eq word 'q) ?!
-           (return-from forward)
-           (format t "Value ~A: type ~a~%" word (type-of word))))))
+  (setf *exit-flag* nil)
+  (loop while (not *exit-flag*)
+       do
+       (let ((word (read #| Maybe this instead? (read *standard-input* t #\Space)|#)))
+         (run word))))
 
-(defun run (entry)
-  (when (get entry 'core)               ; Just run the code
-    (stack-push (eval (get entry 'code)))
-    (return-from run))
-  (let ((code (get entry 'code)))
-    (dolist (word code)
-      (when word
-        ;; Don't push the value on the stack since
-        ;; it would do it twice whenever it hits a 'core entry
-        (run word)))))
+(defun run (word)
+  (flet ((run-word (entry)
+           (when (get entry 'core)      ; Just run the code
+             (eval (get entry 'code))
+             (return-from run))
+           (let ((code (get entry 'code)))
+             (dolist (word code)
+               (run word)))))
+    (when word
+      (etypecase word
+        (number
+         (stack-push word))
+        (symbol
+         (run-word (find-word word)))))))
+
+(make-word 's '(print *stack*) t)
+(make-word '+ '(stack-push (+ (stack-pop) (stack-pop))) t)
+(make-word '- '(let ((temp (stack-pop))) (stack-push (- (stack-pop) temp))) t)
+(make-word 'q '(setf *exit-flag* t) t)
