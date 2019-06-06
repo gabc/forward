@@ -25,12 +25,12 @@
            (dolist (word *dictionary*)
              (when (eq name (car word))
                word)))
-	 ;; Support redifinition but statically. Not all the word.
-	 (values name array-index)
-         (find-word-from (name array-index)))
-    (if array-index-p
-        (find-word-from-end name)
-        (find-word-from name array-index))))
+         (find-word-from (name array-index)
+	   ;; Support redifinition but statically. Not all the word.
+           (values name array-index)))
+   (if array-index-p
+       (find-word-from-end name)
+       (find-word-from name array-index))))
 
 (defun forward ()
   (setf *exit-flag* nil)
@@ -67,7 +67,7 @@
 ;; How to read symbol like ; and : ?
 (make-word 'def '(let (code temp name)
 		  (setf name (read))
-		  (if (not eq '{ (read))
+		  (if (not (eq '{ (read)))
 		      (error 'error "Need {"))
 		  (loop while (not (eq (setf temp (read)) '}))
 			do (push temp code))
