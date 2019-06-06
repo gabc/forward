@@ -4,6 +4,7 @@
 
 (defvar *dictionary* '()
   "actually a list of words.")
+(defvar *forth-readtable* (copy-readtable))
 (defvar *stack* '())
 (defvar *exit-flag* nil
   "Can't think of a better way to leave the thing.")
@@ -32,11 +33,15 @@
        (find-word-from-end name)
        (find-word-from name array-index))))
 
+(defun forth-read ()
+  (let ((*readtable* *forth-readtable*))
+    (read)))
+
 (defun forward ()
   (setf *exit-flag* nil)
   (loop while (not *exit-flag*)
        do
-       (let ((word (read #| Maybe this instead? (read *standard-input* t #\Space)|#)))
+       (let ((word (forth-read #| Maybe this instead? (read *standard-input* t #\Space)|#)))
          (run word))))
 
 (defun run (word)
@@ -65,11 +70,13 @@
 (make-word 'code '(print (symbol-plist (find-word (intern (string-upcase (stack-pop)))))) t)
 (make-word '_ '(print (stack-pop)) t)
 ;; How to read symbol like ; and : ?
-(make-word 'def '(let (code temp name)
-		  (setf name (read))
-		  (if (not (eq '{ (read)))
-		      (error 'error "Need {"))
-		  (loop while (not (eq (setf temp (read)) '}))
+(make-word '|:| '(let (code temp name)
+		  (setf name (forth-read))
+		  (loop while (not (eq (setf temp (forth-read)) '|;|))
 			do (push temp code))
 		  (make-word name (nreverse code)))
 	   t)
+
+(set-macro-character #\: (lambda (stream char) '|:|) t *forth-readtable*)
+(set-macro-character #\; (lambda (stream char) '|;|) t *forth-readtable*)
+
