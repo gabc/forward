@@ -1,0 +1,32 @@
+* Forward is a sort of Forth-in-Lisp.
+
+It plans to bring Forth syntax and semantics in a Lisp environment.
+
+In order to:
+- Make it easier to have an interactive prompt to interact with
+  sotfware.
+- Make it easier to control and limit the possible interaction with
+  said software.
+
+Forward wants to be only a base on which the control words for each
+application is layered on top of.
+
+* Data structure
+** *stack*
+   Should not be a global variable but a local variable that is passed
+   around.
+** *dictionary*
+   See supra.
+** Word
+   Each word is a symbol with added information on its plist.
+   - name
+     The symbol-name of the word
+   - core
+     Boolean pointing if it's a base-word. Basically is its function
+     `eval'd or `run'
+   - code
+     If core: a lisp expression run in a lambda.
+     If not core: a list of words.
+   - here
+     The index of the word in the dictionary, unused as of now.
+
