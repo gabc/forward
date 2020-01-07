@@ -78,6 +78,7 @@
 
 (make-word 's '(format t "~s" *stack*) t)
 (make-word '+ '(stack-push (+ (stack-pop) (stack-pop))) t)
+(make-word '* '(stack-push (* (stack-pop) (stack-pop))) t)
 (make-word '- '(let ((temp (stack-pop))) (stack-push (- (stack-pop) temp))) t)
 (make-word 'q '(setf *exit-flag* t) t)
 (make-word 'code '(print (symbol-plist (find-word (intern (string-upcase (stack-pop)))))) t)
