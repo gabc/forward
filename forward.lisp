@@ -61,8 +61,8 @@
     (when word
       (etypecase word
         (cons
-         (if (eq (car word) 'QUOTE)
-	     (stack-push (car (cdr word)))))
+         (when (eq (car word) 'QUOTE)
+	   (stack-push (car (cdr word)))))
         (simple-array
          (stack-push word))
         (number
