@@ -60,8 +60,9 @@
                (run word)))))
     (when word
       (etypecase word
-        ;; (cons                           ;MEeeeeeh
-        ;;  (if (eq (car word) 'QUOTE)))
+        (cons
+         (if (eq (car word) 'QUOTE)
+	     (stack-push (car (cdr word)))))
         (simple-array
          (stack-push word))
         (number
