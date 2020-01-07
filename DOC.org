@@ -30,3 +30,6 @@ application is layered on top of.
    - here
      The index of the word in the dictionary, unused as of now.
 
+* Readtable
+  There is a special `readtable', *forth-readtable*, defined.
+  It is to make it so that : and ; stop being special symbol.
