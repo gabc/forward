@@ -25,16 +25,19 @@
   (delete (find-word name) *dictionary*))
 
 (defun find-word (name &optional (array-index nil array-index-p))
+  "Returns (values name t/nil) if exists."
   (flet ((find-word-from-end (name)
            (dolist (word *dictionary*)
-             (when (eq name (car word))
-               word)))
+	     ;; (log:debug word)
+             (when (eq name (get word 'name))
+               (return-from find-word-from-end (values word t))))
+	   (values name nil))
          (find-word-from (name array-index)
 	   ;; Support redifinition but statically. Not all the word.
            (values name array-index)))
     (if array-index-p
-	(find-word-from-end name)
-	(find-word-from name array-index))))
+	(find-word-from name array-index)
+	(find-word-from-end name))))
 
 (defun forth-read ()
   (let ((*readtable* *forth-readtable*))
@@ -64,9 +67,16 @@
         (number
          (stack-push word))
         (symbol
-         (run-word (find-word word)))))))
+	 (log:debug "Is symbol ~s" word)
+	 (multiple-value-bind (w exist) (find-word word)
+	   (if exist
+	       (run-word w)
+	       (progn (log:debug "No exists ~s" w)
+		      (when (boundp word)
+			(log:debug "Evaled ~s" (eval word))
+			(stack-push (eval word)))))))))))
 
-(make-word 's '(print *stack*) t)
+(make-word 's '(format t "~s" *stack*) t)
 (make-word '+ '(stack-push (+ (stack-pop) (stack-pop))) t)
 (make-word '- '(let ((temp (stack-pop))) (stack-push (- (stack-pop) temp))) t)
 (make-word 'q '(setf *exit-flag* t) t)
