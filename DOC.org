@@ -33,3 +33,9 @@ application is layered on top of.
 * Readtable
   There is a special `readtable', *forth-readtable*, defined.
   It is to make it so that : and ; stop being special symbol.
+
+* Issues
+  - Stack is a global variable. And for now, I don't see a simple way
+    to modify it simply with a local variable.
+  - Package, since the words are symbols, they are linked to a
+    specific package. I should be able to be more flexible for that.
