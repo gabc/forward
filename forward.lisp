@@ -16,7 +16,9 @@
 (defun make-word (name code &optional (core nil))
   (let ((new-word name))
     (setf (get new-word 'name) name)
-    (setf (get new-word 'code) (if core (eval `(lambda (s) ,code)) code))
+    (setf (get new-word 'code) (if core
+				   (eval `(lambda (s) (declare (ignore s)) ,code))
+				   code))
     (setf (get new-word 'here) (length *dictionary*))
     (setf (get new-word 'core) core) ; Does it get `eval'd or recursively `eval'd?
     (push new-word *dictionary*)))

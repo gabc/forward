@@ -16,10 +16,15 @@
       (end-of-file (c)
 	(declare (ignore c))))))
 
+(defun clean-all ()
+  (setf *dictionary* nil)
+  (setf *stack* nil)
+  (init-dict))
 (defmacro runt (cmds)
   `(progn
+     (clean-all)
      (setf *stack* nil)
-      (run-str ,cmds)
+     (run-str ,cmds)
      *stack*))
 
 (5am:test
