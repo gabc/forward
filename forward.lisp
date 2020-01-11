@@ -42,8 +42,8 @@
 (defun forward ()
   (setf *exit-flag* nil)
   (loop while (not *exit-flag*)
-       do
-       (let ((word (forth-read #| Maybe this instead? (read *standard-input* t #\Space)|#)))
+     do
+       (let ((word (forth-read)))
          (run word *standard-input*))))
 
 (defun run (word stream)
@@ -56,26 +56,24 @@
 	       (log:debug word)
 	       (let ((w (find-word word (word-here entry))))
 		 (run w stream))))))
-    (when word
-      (etypecase word
-        (cons
-         (when (eq (car word) 'QUOTE)
-	   (stack-push (car (cdr word)))))
-        (simple-array
-         (stack-push word))
-        (number
-         (stack-push word))
-        (symbol
-	 (log:debug "Is symbol ~s" word)
-	 (multiple-value-bind (w exist) (find-word word)
-	   (if exist
-	       (run-word w)
-	       (progn (log:debug "No exists ~s" w)
-		      (when (boundp word)
-			(log:debug "Evaled ~s" (eval word))
-			(stack-push (eval word)))))))
+    (multiple-value-bind (entry exist) (find-word word)
+      (declare (ignore exist))
+      (etypecase entry
+	(cons
+	 (when (eq (car entry) 'QUOTE)
+	   (stack-push (car (cdr entry)))))
+	(simple-array
+	 (stack-push entry))
+	(number
+	 (stack-push entry))
+	(symbol
+	 (log:debug "Is symbol ~s" entry)
+	 (when (boundp entry)
+	   (log:debug "Evaled ~s" (eval entry))
+	   (stack-push (eval entry))))
 	(word
-	 (run-word word))))))
+	 (log:debug entry)
+	 (run-word entry))))))
 
 (defun init-dict ()
   (add-word 's '(format t "~s" *stack*) t)
