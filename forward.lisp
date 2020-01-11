@@ -41,17 +41,18 @@
       (return-from find-word (values word t))))
   (values name nil))
 
-(defun forth-read (&optional env)
+(defun forth-read (env)
   (let ((*readtable* *forth-readtable*))
-    (read (or (env-stream env) t))))
+    (read (env-stream env))))
 
 (defun forward ()
-  (let ((fresh-env (make-env)))
-    (init-dict fresh-env)
-    (loop while (not (env-exit fresh-env))
+  (let ((env (make-env)))
+    (setf (env-stream env) *standard-input*)
+    (init-dict env)
+    (loop while (not (env-exit env))
        do
-	 (let ((word (forth-read)))
-           (run word *standard-input*)))))
+	 (let ((word (forth-read env)))
+           (run word env)))))
 
 (defun run (word env)
   (flet ((run-word (entry)
