@@ -34,3 +34,9 @@
  (5am:is (equal '(3) (runt "1 1 1 + +")))
  (5am:is (equal '(8) (runt "2 2 2 + *")))
  (5am:is (equal '(8) (runt ": foo 2 2 + ; 2 foo *"))))
+
+(5am:test
+ tricky
+ ;; This one test to make sure that redefining words still call the older one.
+ ;; See hyperstatic environment.
+ (5am:is (equal '(2 2) (runt ": foo 2 ; : bar foo ; bar : foo 4 ; bar"))))
