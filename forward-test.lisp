@@ -5,27 +5,30 @@
 (5am:in-suite forward-suite)
 
 (defvar foo 4)
+(defvar test-env (make-env))
 (defun run-str (str)
   (with-open-stream (s (make-string-input-stream str))
+    (setf (env-stream test-env) s)
     (setf *exit-flag* nil)
     (handler-case
 	(loop while (not *exit-flag*)
 	   do
-	     (let ((word (forth-read s)))
-               (run word s)))
+	     (let ((word (forth-read test-env)))
+               (run word test-env)))
       (end-of-file (c)
 	(declare (ignore c))))))
 
-(defun clean-all ()
-  (setf *dictionary* nil)
-  (setf *stack* nil)
-  (init-dict))
+(defun clean-all (env)
+  (setf (env-stream env) t)
+  (setf (env-dictionary env) nil)
+  (setf (env-stack env) nil)
+  (init-dict env))
 (defmacro runt (cmds)
   `(progn
-     (clean-all)
-     (setf *stack* nil)
+     (setf test-env (make-env))
+     (clean-all test-env)
      (run-str ,cmds)
-     *stack*))
+     (env-stack test-env)))
 
 (5am:test
  forward1
@@ -39,4 +42,6 @@
  tricky
  ;; This one test to make sure that redefining words still call the older one.
  ;; See hyperstatic environment.
- (5am:is (equal '(2 2) (runt ": foo 2 ; : bar foo ; bar : foo 4 ; bar"))))
+ (5am:is (equal '(2 2) (runt ": foo 2 ; : bar foo ; bar : foo 4 ; bar")))
+ ;; (5am:is (equal '(t) (runt "t if t then")))
+ )
