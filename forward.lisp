@@ -37,9 +37,7 @@
 
 (defun forth-read (&optional stream)
   (let ((*readtable* *forth-readtable*))
-    (if stream
-	(read stream)
-	(read))))
+    (read (or stream t))))
 
 (defun forward ()
   (setf *exit-flag* nil)
