@@ -27,20 +27,13 @@
 (defun drop-word (name)
   (delete (find-word name) *dictionary*))
 
-(defun find-word (name &optional (array-index nil array-index-p))
+(defun find-word (name &optional (array-index (length *dictionary*)))
   "Returns (values name t/nil) if exists."
-  (flet ((find-word-from-end (name)
-           (dolist (word *dictionary*)
-	     ;; (log:debug word)
-             (when (eq name (word-name word))
-               (return-from find-word-from-end (values word t))))
-	   (values name nil))
-         (find-word-from (name array-index)
-	   ;; Support redifinition but statically. Not all the word.
-           (values name array-index)))
-    (if array-index-p
-	(find-word-from name array-index)
-	(find-word-from-end name))))
+  (dolist (word (subseq *dictionary* (- (length *dictionary*) array-index)))
+    (log:debug word)
+    (when (equal name (word-name word))
+      (return-from find-word (values word t))))
+  (values name nil))
 
 (defun forth-read (&optional stream)
   (let ((*readtable* *forth-readtable*))
@@ -82,7 +75,10 @@
 	       (progn (log:debug "No exists ~s" w)
 		      (when (boundp word)
 			(log:debug "Evaled ~s" (eval word))
-			(stack-push (eval word)))))))))))
+			(stack-push (eval word)))))))
+	(word
+	 (run-word word))))))
+
 (defun init-dict ()
   (add-word 's '(format t "~s" *stack*) t)
   (add-word '+ '(stack-push (+ (stack-pop) (stack-pop))) t)
@@ -95,11 +91,11 @@
   (add-word 'clear '(setf *stack* nil) t)
 					;(add-word 'if)
   (add-word '|:| '(let (code temp name)
-		    (setf name (forth-read s))
-		    (loop while (not (eq (setf temp (forth-read s)) '|;|))
-		       do (push temp code))
-		    (add-word name (nreverse code)))
-	     t))
+		   (setf name (forth-read s))
+		   (loop while (not (eq (setf temp (forth-read s)) '|;|))
+		      do (push temp code))
+		   (add-word name (nreverse code)))
+	    t))
 (setf *dictionary* nil)
 (init-dict)
 
