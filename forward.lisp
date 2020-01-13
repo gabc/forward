@@ -15,17 +15,18 @@
   (pop (env-stack env)))
 
 (defstruct word
-  name code here core)
+  name code here core immediate)
 (defstruct env
-  stack dictionary current-word stream exit)
+  rstack stack dictionary current-word stream exit state)
 
-(defun add-word (name code env &optional (core nil))
+(defun add-word (name code env &optional (core nil) immediate)
   (let ((new-word (make-word :name name
 			     :code (if core
 				       (eval `(lambda (env) ,code))
 				       code)
 			     :here (length (env-dictionary env))
-			     :core core))) 
+			     :core core
+			     :immediate immediate))) 
     (push new-word (env-dictionary env))))
 
 (defun drop-word (name env)
@@ -52,17 +53,24 @@
     (loop while (not (env-exit env))
        do
 	 (let ((word (forth-read env)))
-           (run word env)))))
+           (run word env)))
+    env))
 
 (defun run-list (list env)
   (dolist (w list)
     (run (find-word w env) env)))
 
+(defmacro with-rstack (word env &body body)
+  `(progn
+     (push ,word (env-rstack ,env))
+     ,@body
+     (pop (env-rstack ,env))))
+
 (defun run (word env)
   (flet ((run-word (entry)
            (when (word-core entry)      ; Just run the code
-             (funcall (word-code entry) env)
-             (return-from run))
+	     (funcall (word-code entry) env)
+             (return-from run-word))
            (let ((code (word-code entry)))
              (dolist (word code)
 	       (log:debug word)
@@ -70,25 +78,29 @@
 		 (run w env))))))
     (multiple-value-bind (entry exist) (find-word word env)
       (declare (ignore exist))
-      (etypecase entry
-	(cons
-	 (when (eq (car entry) 'QUOTE)
-	   (stack-push (car (cdr entry)) env)))
-	(simple-array
-	 (stack-push entry env))
-	(number
-	 (stack-push entry env))
-	(symbol
-	 (log:debug "Is symbol ~s" entry)
-	 (when (boundp entry)
-	   (log:debug "Evaled ~s" (eval entry))
-	   (stack-push (eval entry) env)))
-	(word
-	 (log:debug entry)
-	 (run-word entry))))))
+      (with-rstack entry env
+       (etypecase entry
+	 (cons
+	  (when (eq (car entry) 'QUOTE)
+	    (stack-push (car (cdr entry)) env)))
+	 (simple-array
+	  (stack-push entry env))
+	 (number
+	  (stack-push entry env))
+	 (symbol
+	  (log:debug "Is symbol ~s" entry)
+	  (when (boundp entry)
+	    (log:debug "Evaled ~s" (eval entry))
+	    (stack-push (eval entry) env)))
+	 (word
+	  (log:debug entry)
+	  (run-word entry)))))))
 
 (defun init-dict (env)
   (add-word 's '(format t "~s" (reverse (env-stack env))) env t)
+  (add-word 'rs '(format t "~s" (reverse (env-rstack env))) env t)
+  ;; (add-word '>r '(push (stack-pop env) (env-rstack env)) env t)
+  ;; (add-word 'r> '(push (pop (env-rstack env)) (env-stack env)) env t)
   (add-word '+ '(stack-push (+ (stack-pop env) (stack-pop env)) env) env t)
   (add-word '* '(stack-push (* (stack-pop env) (stack-pop env)) env) env t)
   (add-word '- '(let ((temp (stack-pop env))) (stack-push (- (stack-pop env) temp) env)) env t)
@@ -97,21 +109,30 @@
   (add-word '_ '(print (stack-pop env)) env t)
   (add-word '= '(stack-push (= (stack-pop env) (stack-pop env)) env) env t)
   (add-word 'clear '(setf (env-stack env) nil) env t)
+  (add-word 'immediate '(setf (word-immediate (car (env-dictionary env))) t) env t)
   (add-word '\(comment '(let (tmp)
 			 (log:debug (env-stream env))
 			 (loop while (not (eq (setf tmp (forth-read env)) '\))))) env t)
-  (add-word 'if '(let (then-branch else-branch temp)
-		  (loop while (not (member (setf temp (forth-read env)) '(else then)))
-		     do (push temp then-branch))
-		  (unless (eq temp 'then) ;If we just ate the end don't eat more.
-		    (loop while (not (eq (setf temp (forth-read env)) 'then))
-		       do (push temp else-branch)))
-		  (log:debug then-branch)
-		  (log:debug else-branch)
-		  (if (stack-pop env)
-		      (run-list then-branch env)
-		      (run-list else-branch env)))
-	    env t)
+  ;; (add-word 'if '(let (then-branch else-branch code stt)
+  ;; 		  (setf code (word-code (car (last (env-rstack env)))))
+  ;; 		  (log:debug code)
+  ;; 		  (dolist (w code) 
+  ;; 		    (case w
+  ;; 		      (if (setf stt :if))
+  ;; 		      (else (setf stt :else))
+  ;; 		      (then (setf stt :then)))
+  ;; 		    (case stt
+  ;; 		      (:if (push w then-branch))
+  ;; 		      (:else (push w else-branch))))
+  ;; 		  (nreverse then-branch)
+  ;; 		  (nreverse else-branch)
+  ;; 		  ;; (pop then-branch) (pop else-branch)
+  ;; 		  (log:debug then-branch)
+  ;; 		  (log:debug else-branch)
+  ;; 		  (if (stack-pop env)
+  ;; 		      (run-list then-branch env)
+  ;; 		      (run-list else-branch env)))
+  ;; 	    env t)
   (add-word '|:| '(let (code temp name)
                    (setf name (forth-read env))
                    (loop while (not (eq (setf temp (forth-read env)) '|;|))
