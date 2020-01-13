@@ -47,3 +47,5 @@
  (5am:is (equal '(2) (runt "1 1 t if + else - then")))
  (5am:is (equal '(0) (runt "1 1 nil if + else - then")))
  )
+(defun at ()
+  (5am:run! '(tricky forward1)))

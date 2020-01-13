@@ -36,7 +36,7 @@
   (unless array-index
     (setf array-index (length (env-dictionary env))))
   (dolist (word (subseq (env-dictionary env) (- (length (env-dictionary env)) array-index)))
-    (log:debug word)
+    ;; (log:debug word)
     (when (equal name (word-name word))
       (return-from find-word (values word t))))
   (values name nil))
@@ -98,6 +98,7 @@
   (add-word '= '(stack-push (= (stack-pop env) (stack-pop env)) env) env t)
   (add-word 'clear '(setf (env-stack env) nil) env t)
   (add-word '\(comment '(let (tmp)
+			 (log:debug (env-stream env))
 			 (loop while (not (eq (setf tmp (forth-read env)) '\))))) env t)
   (add-word 'if '(let (then-branch else-branch temp)
 		  (loop while (not (member (setf temp (forth-read env)) '(else then)))
