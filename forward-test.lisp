@@ -43,5 +43,7 @@
  ;; This one test to make sure that redefining words still call the older one.
  ;; See hyperstatic environment.
  (5am:is (equal '(2 2) (runt ": foo 2 ; : bar foo ; bar : foo 4 ; bar")))
- ;; (5am:is (equal '(t) (runt "t if t then")))
+ (5am:is (equal '(1) (runt "t if 1 then")))
+ (5am:is (equal '(2) (runt "1 1 t if + else - then")))
+ (5am:is (equal '(0) (runt "1 1 nil if + else - then")))
  )

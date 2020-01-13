@@ -39,3 +39,8 @@ application is layered on top of.
     to modify it simply with a local variable.
   - Package, since the words are symbols, they are linked to a
     specific package. I should be able to be more flexible for that.
+
+* Ideas
+  - Have a eval-mode.
+    ':' would set it to :compile and it would add read word until a
+    ';' is encountered.
