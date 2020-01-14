@@ -68,33 +68,35 @@
 
 (defun run (word env)
   (labels ((interpret (word env)
-	     (when (word-core word)	; Just run the code
-	       (funcall (word-code word) env)
-	       (return-from interpret))
-             (let ((code (word-code word)))
-	       (dolist (word code)
-		 (log:debug word)
-		 (let ((w (find-word word env (word-here word))))
-		   (run w env)))))
-	   (run-word (word)
+	     (log:debug word)
+	     (let ((code (word-code word)))
+	       (if (word-core word)
+		   (funcall code env)
+		   (dolist (word code)
+		     (etypecase word
+		       (simple-array
+			(stack-push word env))
+		       (number
+			(stack-push word env))
+		       (cons
+			(when (eq (car word) 'QUOTE)
+			  (stack-push (car (cdr word)) env)))
+		       (symbol
+			(log:debug "Is symbol ~s" word)
+			(when (boundp word)
+			  (log:debug "Evaled ~s" (eval word))
+			  (stack-push (eval word) env)))
+		       (word
+			(if (word-core word) ; Just run the code
+			    (funcall (word-code word) env)
+			    (let ((w (find-word word env (word-here word))))
+			      (run w env))))))))) 
+	   (run-word (word env)
 	     (log:debug word)
 	     (case (env-state env)
 	       (:interpret
 		(log:debug "interpreting")
-		(etypecase word
-		  (simple-array
-		   (stack-push word env))
-		  (number
-		   (stack-push word env))
-		  (cons
-		   (when (eq (car word) 'QUOTE)
-		     (stack-push (car (cdr word)) env)))
-		  (symbol
-		   (log:debug "Is symbol ~s" word)
-		   (when (boundp word)
-		     (log:debug "Evaled ~s" (eval word))
-		     (stack-push (eval word) env)))
-		  (word (interpret word env))))
+		(interpret word env))
 	       (:compile
 		(log:debug "compiling ~s" word)
 		(log:debug (when (env-current-word env) (word-code (env-current-word env))))
@@ -123,7 +125,7 @@
       (declare (ignore exist))
       (log:debug (env-state env))
       (with-rstack entry env
-	(run-word entry)))))
+	(run-word entry env)))))
 
 (defun init-dict (env)
   (add-word 's '(format t "~s" (reverse (env-stack env))) env t)
