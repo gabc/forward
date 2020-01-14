@@ -22,13 +22,16 @@
   (setf (env-stream env) t)
   (setf (env-dictionary env) nil)
   (setf (env-stack env) nil)
+  (setf (env-state env) :interpret)
   (init-dict env))
-(defmacro runt (cmds)
+(defun runt (cmds)
+  (env-stack (runte cmds)))
+(defmacro runte (cmds)
   `(progn
      (setf test-env (make-env))
      (clean-all test-env)
      (run-str ,cmds)
-     (env-stack test-env)))
+     test-env))
 
 (5am:test
  forward1

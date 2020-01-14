@@ -67,34 +67,63 @@
      (pop (env-rstack ,env))))
 
 (defun run (word env)
-  (flet ((run-word (entry)
-           (when (word-core entry)      ; Just run the code
-	     (funcall (word-code entry) env)
-             (return-from run-word))
-           (let ((code (word-code entry)))
-             (dolist (word code)
-	       (log:debug word)
-	       (let ((w (find-word word env (word-here entry))))
-		 (run w env))))))
+  (labels ((interpret (word env)
+	     (when (word-core word)	; Just run the code
+	       (funcall (word-code word) env)
+	       (return-from interpret))
+             (let ((code (word-code word)))
+	       (dolist (word code)
+		 (log:debug word)
+		 (let ((w (find-word word env (word-here word))))
+		   (run w env)))))
+	   (run-word (word)
+	     (log:debug word)
+	     (case (env-state env)
+	       (:interpret
+		(log:debug "interpreting")
+		(etypecase word
+		  (simple-array
+		   (stack-push word env))
+		  (number
+		   (stack-push word env))
+		  (cons
+		   (when (eq (car word) 'QUOTE)
+		     (stack-push (car (cdr word)) env)))
+		  (symbol
+		   (log:debug "Is symbol ~s" word)
+		   (when (boundp word)
+		     (log:debug "Evaled ~s" (eval word))
+		     (stack-push (eval word) env)))
+		  (word (interpret word env))))
+	       (:compile
+		(log:debug "compiling ~s" word)
+		(log:debug (when (env-current-word env) (word-code (env-current-word env))))
+		(etypecase word
+		  (simple-array
+		   (push word (word-code (env-current-word env))))
+		  (symbol
+		   (when (not (env-current-word env))
+		     (log:debug "getting here?")
+		     (setf (env-current-word env) (make-word :name word :core nil
+							     :here (length (env-dictionary env))))))
+		  (cons
+		   (when (eq (car word) 'QUOTE)
+		     (push (car (cdr  word)) (word-code (env-current-word env)))))
+		  (number
+		   (push word (word-code (env-current-word env))))
+		  (word
+		   (if (word-immediate word)
+		       (progn
+			 (log:debug "wat")
+			 (interpret word env))
+		       (progn
+			 (log:debug "wherer")
+			 (push word (word-code (env-current-word env)))))))))))
     (multiple-value-bind (entry exist) (find-word word env)
       (declare (ignore exist))
+      (log:debug (env-state env))
       (with-rstack entry env
-       (etypecase entry
-	 (cons
-	  (when (eq (car entry) 'QUOTE)
-	    (stack-push (car (cdr entry)) env)))
-	 (simple-array
-	  (stack-push entry env))
-	 (number
-	  (stack-push entry env))
-	 (symbol
-	  (log:debug "Is symbol ~s" entry)
-	  (when (boundp entry)
-	    (log:debug "Evaled ~s" (eval entry))
-	    (stack-push (eval entry) env)))
-	 (word
-	  (log:debug entry)
-	  (run-word entry)))))))
+	(run-word entry)))))
 
 (defun init-dict (env)
   (add-word 's '(format t "~s" (reverse (env-stack env))) env t)
@@ -133,12 +162,13 @@
   ;; 		      (run-list then-branch env)
   ;; 		      (run-list else-branch env)))
   ;; 	    env t)
-  (add-word '|:| '(let (code temp name)
-                   (setf name (forth-read env))
-                   (loop while (not (eq (setf temp (forth-read env)) '|;|))
-		      do (push temp code))
-                   (add-word name (nreverse code) env))
-	    env t))
+  (add-word '|:| '(setf (env-state env) :compile) env t)
+  (add-word '|;| '(progn
+		   (setf (env-state env) :interpret)
+		   (add-word (word-name (env-current-word env))
+		    (nreverse (word-code (env-current-word env)))env)
+		   (setf (env-current-word env) nil))
+	    env t t))
 
 (set-macro-character #\: (lambda (stream char) '|:|) t *forth-readtable*)
 (set-macro-character #\; (lambda (stream char) '|;|) t *forth-readtable*)
