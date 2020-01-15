@@ -32,6 +32,17 @@
 (defun drop-word (name env)
   (delete (find-word name env) (env-dictionary env)))
 
+(defmacro dowords ((name env) &body body)
+  `(dolist (,name (env-dictionary ,env))
+     ,@body))
+
+(defun find-all-words (name env)
+  (let (res)
+    (dowords (w env)
+      (when (equal name (word-name w))
+	(push w res)))
+    res))
+
 (defun find-word (name env &optional (array-index nil))
   "Returns (values name t/nil) if exists."
   (unless array-index
@@ -66,32 +77,36 @@
      ,@body
      (pop (env-rstack ,env))))
 
+(defun interpret  (word env)
+  (log:debug word)
+  (etypecase word
+    (simple-array
+     (stack-push word env))
+    (number
+     (stack-push word env))
+    (cons
+     (when (eq (car word) 'QUOTE)
+       (stack-push (car (cdr word)) env)))
+    (symbol
+     (log:debug "Is symbol ~s" word)
+     (when (boundp word)
+       (log:debug "Evaled ~s" (eval word))
+       (stack-push (eval word) env)))
+    (word
+     (if (word-core word)		; Just run the code
+	 (funcall (word-code word) env)
+	 (let ((w (find-word word env (word-here word))))
+	   (dolist (wc (word-code w))
+	     (run wc env)))))))
+
+(defun compile-new-word (word env)
+  (when (not (env-current-word env))
+    (log:debug word)
+    (setf (env-current-word env) (make-word :name word :core nil
+					    :here (length (env-dictionary env))))))
 (defun run (word env)
-  (labels ((interpret (word env)
-	     (log:debug word)
-	     (let ((code (word-code word)))
-	       (if (word-core word)
-		   (funcall code env)
-		   (dolist (word code)
-		     (etypecase word
-		       (simple-array
-			(stack-push word env))
-		       (number
-			(stack-push word env))
-		       (cons
-			(when (eq (car word) 'QUOTE)
-			  (stack-push (car (cdr word)) env)))
-		       (symbol
-			(log:debug "Is symbol ~s" word)
-			(when (boundp word)
-			  (log:debug "Evaled ~s" (eval word))
-			  (stack-push (eval word) env)))
-		       (word
-			(if (word-core word) ; Just run the code
-			    (funcall (word-code word) env)
-			    (let ((w (find-word word env (word-here word))))
-			      (run w env))))))))) 
-	   (run-word (word env)
+  (declare (optimize (speed 0) (space 0) (debug 3)))
+  (labels ((run-word (word env)
 	     (log:debug word)
 	     (case (env-state env)
 	       (:interpret
@@ -104,28 +119,29 @@
 		  (simple-array
 		   (push word (word-code (env-current-word env))))
 		  (symbol
-		   (when (not (env-current-word env))
-		     (log:debug "getting here?")
-		     (setf (env-current-word env) (make-word :name word :core nil
-							     :here (length (env-dictionary env))))))
+		   (compile-new-word word env))
 		  (cons
 		   (when (eq (car word) 'QUOTE)
 		     (push (car (cdr  word)) (word-code (env-current-word env)))))
 		  (number
 		   (push word (word-code (env-current-word env))))
 		  (word
-		   (if (word-immediate word)
-		       (progn
-			 (log:debug "wat")
-			 (interpret word env))
-		       (progn
-			 (log:debug "wherer")
-			 (push word (word-code (env-current-word env)))))))))))
+		   (if (not (env-current-word env))
+		       (compile-new-word word env)
+		       (if (word-immediate word)
+			   (progn
+			     (log:debug "wat ~s" word)
+			     (interpret word env))
+			   (progn
+			     (log:debug "wherer")
+			     (push word (word-code (env-current-word env))))))))))))
     (multiple-value-bind (entry exist) (find-word word env)
       (declare (ignore exist))
       (log:debug (env-state env))
+      (when (eq (env-state env) :compiling)
+	(log:debug "compiling ~s" entry))
       (with-rstack entry env
-	(run-word entry env)))))
+	(run-word entry env))))))
 
 (defun init-dict (env)
   (add-word 's '(format t "~s" (reverse (env-stack env))) env t)
