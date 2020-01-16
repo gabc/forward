@@ -17,7 +17,7 @@
 (defstruct word
   name code here core immediate)
 (defstruct env
-  rstack stack dictionary current-word stream exit state)
+  rstack stack dictionary current-word stream exit state nb-skip skipp)
 
 (defun add-word (name code env &optional (core nil) immediate)
   (let ((new-word (make-word :name name
@@ -67,10 +67,6 @@
            (run word env)))
     env))
 
-(defun run-list (list env)
-  (dolist (w list)
-    (run (find-word w env) env)))
-
 (defmacro with-rstack (word env &body body)
   `(progn
      (push ,word (env-rstack ,env))
@@ -95,53 +91,57 @@
     (word
      (if (word-core word)		; Just run the code
 	 (funcall (word-code word) env)
-	 (let ((w (find-word word env (word-here word))))
-	   (dolist (wc (word-code w))
-	     (run wc env)))))))
+	 (run word env)))))
 
+(defun assemble (word env)
+  (etypecase word
+    (simple-array
+     (push word (word-code (env-current-word env))))
+    (symbol
+     (compile-new-word word env))
+    (cons
+     (when (eq (car word) 'QUOTE)
+       (push (car (cdr  word)) (word-code (env-current-word env)))))
+    (number
+     (push word (word-code (env-current-word env))))
+    (word
+     (if (not (env-current-word env))
+	 (compile-new-word word env)
+	 (if (word-immediate word)
+	     (progn
+	       (log:debug "immediate, compile ~s" word)
+	       (interpret word env))
+	     (progn
+	       (log:debug "nonimmediate, compile ~s" word)
+	       (push word (word-code (env-current-word env)))))))))
 (defun compile-new-word (word env)
   (when (not (env-current-word env))
     (log:debug word)
     (setf (env-current-word env) (make-word :name word :core nil
 					    :here (length (env-dictionary env))))))
+
+(defun run-word (word env)
+  (log:debug word)
+  (case (env-state env)
+    (:interpret
+     (interpret word env))
+    (:compile
+     (log:debug "compiling ~s" word)
+     (log:debug (when (env-current-word env) (word-code (env-current-word env))))
+     (assemble word env))))
+
 (defun run (word env)
   (declare (optimize (speed 0) (space 0) (debug 3)))
-  (labels ((run-word (word env)
-	     (log:debug word)
-	     (case (env-state env)
-	       (:interpret
-		(log:debug "interpreting")
-		(interpret word env))
-	       (:compile
-		(log:debug "compiling ~s" word)
-		(log:debug (when (env-current-word env) (word-code (env-current-word env))))
-		(etypecase word
-		  (simple-array
-		   (push word (word-code (env-current-word env))))
-		  (symbol
-		   (compile-new-word word env))
-		  (cons
-		   (when (eq (car word) 'QUOTE)
-		     (push (car (cdr  word)) (word-code (env-current-word env)))))
-		  (number
-		   (push word (word-code (env-current-word env))))
-		  (word
-		   (if (not (env-current-word env))
-		       (compile-new-word word env)
-		       (if (word-immediate word)
-			   (progn
-			     (log:debug "wat ~s" word)
-			     (interpret word env))
-			   (progn
-			     (log:debug "wherer")
-			     (push word (word-code (env-current-word env))))))))))))
-    (multiple-value-bind (entry exist) (find-word word env)
-      (declare (ignore exist))
-      (log:debug (env-state env))
-      (when (eq (env-state env) :compiling)
-	(log:debug "compiling ~s" entry))
-      (with-rstack entry env
-	(run-word entry env))))))
+  (dolist (w word)
+    (if (> (env-nb-skip env) 0)
+	(progn
+	  (log:debug "skipping ~s" w)
+	  (decf (env-nb-skip env)))
+	(multiple-value-bind (entry exist) (find-word w env)
+	  (declare (ignore exist))
+	  (log:debug (env-state env))
+	  (with-rstack entry env
+	    (run-word entry env))))))
 
 (defun init-dict (env)
   (add-word 's '(format t "~s" (reverse (env-stack env))) env t)
@@ -160,26 +160,35 @@
   (add-word '\(comment '(let (tmp)
 			 (log:debug (env-stream env))
 			 (loop while (not (eq (setf tmp (forth-read env)) '\))))) env t)
-  ;; (add-word 'if '(let (then-branch else-branch code stt)
-  ;; 		  (setf code (word-code (car (last (env-rstack env)))))
-  ;; 		  (log:debug code)
-  ;; 		  (dolist (w code) 
-  ;; 		    (case w
-  ;; 		      (if (setf stt :if))
-  ;; 		      (else (setf stt :else))
-  ;; 		      (then (setf stt :then)))
-  ;; 		    (case stt
-  ;; 		      (:if (push w then-branch))
-  ;; 		      (:else (push w else-branch))))
-  ;; 		  (nreverse then-branch)
-  ;; 		  (nreverse else-branch)
-  ;; 		  ;; (pop then-branch) (pop else-branch)
-  ;; 		  (log:debug then-branch)
-  ;; 		  (log:debug else-branch)
-  ;; 		  (if (stack-pop env)
-  ;; 		      (run-list then-branch env)
-  ;; 		      (run-list else-branch env)))
-  ;; 	    env t)
+  (add-word 'if '(let (then-branch else-branch code stt)
+		  (setf code (word-code (car (last (env-rstack env)))))
+		  (log:debug code)
+		  (dolist (w code)
+		    (log:debug w)
+		    (case (and (word-p w) (setf w (word-name w)))
+		      (if (setf stt :if))
+		      (else (setf stt :else))
+		      (then (setf stt :then)))
+		    (unless (member w '(if then else))
+		      (case stt
+			(:if (push w then-branch))
+			(:else (push w else-branch)))))
+		  (setf then-branch (reverse then-branch)) 
+		  (setf else-branch (reverse else-branch))
+		  ;; (pop then-branch) (pop else-branch)
+		  (log:debug then-branch)
+		  (log:debug else-branch)
+		  (if (eq t (stack-pop env))
+		      (progn
+			(run-list then-branch env)
+			)
+		      (run-list else-branch env)))
+	    env t)
+  (add-word 'else '(declare (ignore env)) env t)
+  (add-word 'then '(declare (ignore env)) env t)
+  (add-word 'skip '(progn (setf (env-skipp env) t)
+		    (setf (env-nb-skip env) (stack-pop env)))
+	    env t)
   (add-word '|:| '(setf (env-state env) :compile) env t)
   (add-word '|;| '(progn
 		   (setf (env-state env) :interpret)

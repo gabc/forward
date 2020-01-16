@@ -10,18 +10,22 @@
   (with-open-stream (s (make-string-input-stream str))
     (setf (env-stream test-env) s)
     (setf *exit-flag* nil)
-    (handler-case
-	(loop while (not *exit-flag*)
-	   do
-	     (let ((word (forth-read test-env)))
-               (run word test-env)))
-      (end-of-file (c)
-	(declare (ignore c))))))
+    (let (words)
+      (handler-case
+	  (loop while (not *exit-flag*)
+	     do
+	       (let ((word (forth-read test-env)))
+		 (push word words)))
+	(end-of-file (c)
+	  (declare (ignore c))))
+	(run (reverse words) test-env))))
 
 (defun clean-all (env)
   (setf (env-stream env) t)
   (setf (env-dictionary env) nil)
   (setf (env-stack env) nil)
+  (setf (env-skipp env) nil)
+  (setf (env-nb-skip env) 0)
   (setf (env-state env) :interpret)
   (init-dict env))
 (defun runt (cmds)
@@ -47,6 +51,7 @@
  ;; See hyperstatic environment.
  (5am:is (equal '(4 2) (runt ": foo 2 ; : bar foo ; bar : foo 4 ; bar")))
  (5am:is (equal '(1 1) (runt ": a 1 ; : b a ; : c b ; : d c ; : e d ; a e")))
+ (5am:is (equal '(3) (runt "2 skip 1 2 3")))
  ;; (5am:is (equal '(1) (runt "t if 1 then")))
  ;; (5am:is (equal '(2) (runt "1 1 t if + else - then")))
  ;; (5am:is (equal '(0) (runt "1 1 nil if + else - then")))
