@@ -179,15 +179,14 @@
 		      (unless (member w '(if then else))
 			(case stt
 			  ((:done :if) (push w branch))))))
-		  (log:debug branch)
+		  (log:debug "if branch ~s" branch)
 		  (log:debug (length branch))
 		  (if (eq t (stack-pop env))
 		      (push :did-if (env-rstack env))
 		      (progn (push :did-not-if (env-rstack env))
 			     (setf (env-nb-skip env) (length branch)
-				   (env-skipp env) t)))
-		  ;; (swap (env-rstack env))
-		  )
+				   (env-skipp env) t))) 
+		  (setf (env-rstack env) (swap (env-rstack env))))
 	    env t)
   (add-word 'else '(let (branch code stt tmp)
 		    (setf code (word-code (car (last (env-rstack env)))))
@@ -203,14 +202,15 @@
 			    ((:done :if) (push w branch))))))
 		    (log:debug "else branch ~s" branch)
 		    (log:debug (length branch))
+		    (setf (env-rstack env) (swap (env-rstack env)))
 		    (log:debug (env-rstack env))
 		    (setf tmp (pop (env-rstack env)))
 		    
 		    (case tmp
-		      (:did-not-if
+		      (:did-if
 		       (setf (env-nb-skip env) (length branch))
 		       (setf (env-skipp env) t))
-		      (:did-if (setf (env-nb-skip env) 0)
+		      (:did-not-if (setf (env-nb-skip env) 0)
 			       (setf (env-skipp env) nil))
 		      (t (push tmp (env-rstack env)))))
 	    env t)
