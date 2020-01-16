@@ -91,7 +91,7 @@
     (word
      (if (word-core word)		; Just run the code
 	 (funcall (word-code word) env)
-	 (run word env)))))
+	 (run (word-code word) env)))))
 
 (defun assemble (word env)
   (etypecase word
