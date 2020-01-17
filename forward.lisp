@@ -121,11 +121,12 @@
 	     (progn
 	       (log:debug "nonimmediate, compile ~s" word)
 	       (push word (word-code (env-defining env)))))))))
+
 (defun compile-new-word (word env)
   (when (not (env-defining env))
     (log:debug word)
     (setf (env-defining env) (make-word :name word :core nil
-					    :here (length (env-dictionary env))))))
+					:here (length (env-dictionary env))))))
 
 (defun run-word (word env)
   (log:debug word)
