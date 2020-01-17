@@ -62,14 +62,24 @@
   (let ((*readtable* *forth-readtable*))
     (read (env-stream env))))
 
+(defun clean-all (env)
+  (setf (env-stream env) t)
+  (setf (env-dictionary env) nil)
+  (setf (env-stack env) nil)
+  (setf (env-skipp env) nil)
+  (setf (env-nb-skip env) 0)
+  (setf (env-state env) :interpret)
+  (build-dictionary env))
+
 (defun forward ()
   (let ((env (make-env)))
+    (clean-all env)
     (setf (env-stream env) *standard-input*)
-    (init-dict env)
+    (build-dictionary env)
     (loop while (not (env-exit env))
        do
 	 (let ((word (forth-read env)))
-           (run word env)))
+           (run (list word) env)))
     env))
 
 (defmacro with-rstack (word env &body body)
@@ -217,7 +227,9 @@
 (define-word q  t nil
   (setf (env-exit env) t))
 (define-word code  t nil
-  (print (word-code (find-word (stack-pop env) env))))
+  (let (res)
+    (setf res (mapcar #'(lambda (w) (if (word-p w) (word-name w) w)) (word-code (find-word (stack-pop env) env))))
+    (print res)))
 (define-word _  t nil
   (print (stack-pop env)))
 (define-word =  t nil
@@ -277,8 +289,7 @@
       (t (push tmp (env-rstack env))))))
 
 (define-word then  t nil
-  (let (omg)
-    (log:debug "then ~s" (env-rstack env))))
+  (log:debug "then ~s" (env-rstack env)))
 
 (define-word skip  t nil
   (progn
