@@ -157,91 +157,146 @@
 	     (log:debug (env-state env))
 	     (run-word entry env))))))
 
-(defun init-dict (env)
-  (add-word 's '(format t "~s" (reverse (env-stack env))) env t)
-  (add-word 'rs '(format t "~s" (reverse (env-rstack env))) env t)
-  (add-word '>r '(push (stack-pop env) (env-rstack env)) env t)
-  (add-word 'r> '(push (pop (env-rstack env)) (env-stack env)) env t)
-  (add-word 'dup '(let ((tmp (stack-pop env)))
-		   (push tmp (env-stack env))
-		   (push tmp (env-stack env))) env t)
-  (add-word 'swap '(setf (env-stack env) (swap (env-stack env))) env t)
-  (add-word '+ '(stack-push (+ (stack-pop env) (stack-pop env)) env) env t)
-  (add-word '* '(stack-push (* (stack-pop env) (stack-pop env)) env) env t)
-  (add-word '- '(let ((temp (stack-pop env))) (stack-push (- (stack-pop env) temp) env)) env t)
-  (add-word 'q '(setf (env-exit env) t) env t)
-  (add-word 'code '(print (word-code (find-word (stack-pop env) env))) env t)
-  (add-word '_ '(print (stack-pop env)) env t)
-  (add-word '= '(stack-push (= (stack-pop env) (stack-pop env)) env) env t)
-  (add-word 'clear '(setf (env-stack env) nil) env t)
-  (add-word 'immediate '(setf (word-immediate (car (env-dictionary env))) t) env t)
-  (add-word '\(comment '(let (tmp)
-			 (log:debug (env-stream env))
-			 (loop while (not (eq (setf tmp (forth-read env)) '\))))) env t)
-  (add-word 'if '(let (branch code stt)
-		  (setf code (word-code (second (env-rstack env))))
-		  (log:debug code)
-		  (dolist (w code)
-		    (when (not (eq stt :done))
-		      (log:debug w)
-		      (case (and (word-p w) (setf w (word-name w)))
-			(if (setf stt :if))
-			((else then) (setf stt :done)))
-		      (unless (member w '(if then else))
-			(case stt
-			  ((:done :if) (push w branch))))))
-		  (log:debug "if branch ~s" branch)
-		  (log:debug (length branch))
-		  (if (eq t (stack-pop env))
-		      (push :did-if (env-rstack env))
-		      (progn (push :did-not-if (env-rstack env))
-			     (setf (env-nb-skip env) (length branch)
-				   (env-skipp env) t))) 
-		  (setf (env-rstack env) (swap (env-rstack env))))
-	    env t)
-  (add-word 'else '(let (branch code stt tmp)
-		    (setf (env-rstack env) (swap (env-rstack env)))
-		    (setf tmp (pop (env-rstack env)))
-		    (setf code (word-code (second (env-rstack env))))
-		    (log:debug code)
-		    (dolist (w code)
-		      (when (not (eq stt :done))
-			(log:debug w)
-			(case (and (word-p w) (setf w (word-name w)))
-			  (else (setf stt :if))
-			  (then (setf stt :done)))
-			(unless (member w '(if then else))
-			  (case stt
-			    ((:done :if) (push w branch))))))
-		    (log:debug "else branch ~s" branch)
-		    (log:debug (length branch))
-		    
-		    (case tmp
-		      (:did-if
-		       (setf (env-nb-skip env) (length branch))
-		       (setf (env-skipp env) t))
-		      (:did-not-if (setf (env-nb-skip env) 0)
-				   (setf (env-skipp env) nil))
-		      (t (push tmp (env-rstack env)))))
-	    env t)
-  (add-word 'then '(progn
-		    (let (omg)
-		      (log:debug "then ~s" (env-rstack env))))
-	    env t)
-  (add-word 'skip '(progn (setf (env-skipp env) t)
-		    (setf (env-nb-skip env) (stack-pop env)))
-	    env t)
-  (add-word 'rec '(progn (push :recurse (env-rstack env))
-		  (setf (env-rstack env) (swap (env-rstack env))))
-	    env t)
-  (add-word '|:| '(setf (env-state env) :compile) env t)
-  (add-word '|;| '(progn
-		   (setf (env-state env) :interpret)
-		   (add-word (word-name (env-defining env))
-		    (nreverse (word-code (env-defining env)))env)
-		   (setf (env-defining env) nil))
-	    env t t))
+(defmacro define-word (name core immediate body)
+  `(progn
+     (setf *base-dictionary*
+	   (remove-if #'(lambda (el) (eq ',name (car el))) *base-dictionary*))
+     (push '(,name ,core ,immediate ,body)
+	   *base-dictionary*)))
+
+
+(defun build-dictionary (env)
+  "Builds new dictionary for the env, ENV"
+  (setf (env-dictionary env) nil)
+  (dolist (new-word *base-dictionary*)
+    (multiple-value-bind (name core immediate body) (values-list new-word)
+      (push (make-word :name name
+		       :code (if core
+				 (eval `(lambda (env) ,body))
+				 body)
+		       :here (length (env-dictionary env))
+		       :core core
+		       :immediate immediate)
+	    (env-dictionary env)))))
 
 (set-macro-character #\: (lambda (stream char) '|:|) t *forth-readtable*)
 (set-macro-character #\; (lambda (stream char) '|;|) t *forth-readtable*)
+
+;;; Words.
+(defvar *base-dictionary* nil)
+
+(define-word s  t nil
+  (format t "~s" (reverse (env-stack env))))
+
+(define-word rs  t nil
+  (format t "~s" (reverse (env-rstack env))))
+
+(define-word >r  t nil
+  (push (stack-pop env) (env-rstack env)))
+
+(define-word r>  t nil
+  (push (pop (env-rstack env)) (env-stack env)))
+
+(define-word dup  t nil
+  (let ((tmp (stack-pop env)))
+    (push tmp (env-stack env))
+    (push tmp (env-stack env))))
+
+(define-word swap  t nil
+  (setf (env-stack env) (swap (env-stack env))))
+
+(define-word +  t nil
+  (stack-push (+ (stack-pop env) (stack-pop env)) env))
+(define-word *  t nil
+    (stack-push (* (stack-pop env) (stack-pop env)) env))
+
+(define-word -  t nil
+  (let ((temp (stack-pop env))) (stack-push (- (stack-pop env) temp) env)))
+
+(define-word q  t nil
+  (setf (env-exit env) t))
+(define-word code  t nil
+  (print (word-code (find-word (stack-pop env) env))))
+(define-word _  t nil
+  (print (stack-pop env)))
+(define-word =  t nil
+    (stack-push (= (stack-pop env) (stack-pop env)) env))
+(define-word clear  t nil
+  (setf (env-stack env) nil))
+
+(define-word immediate  t nil
+  (setf (word-immediate (car (env-dictionary env))) t))
+
+(define-word if  t nil
+  (let (branch code stt)
+    (setf code (word-code (second (env-rstack env))))
+    (log:debug code)
+    (dolist (w code)
+      (when (not (eq stt :done))
+	(log:debug w)
+	(case (and (word-p w) (setf w (word-name w)))
+	  (if (setf stt :if))
+	  ((else then) (setf stt :done)))
+	(unless (member w '(if then else))
+	  (case stt
+	    ((:done :if) (push w branch))))))
+    (log:debug "if branch ~s" branch)
+    (log:debug (length branch))
+    (if (eq t (stack-pop env))
+	(push :did-if (env-rstack env))
+	(progn (push :did-not-if (env-rstack env))
+	       (setf (env-nb-skip env) (length branch)
+		     (env-skipp env) t))) 
+    (setf (env-rstack env) (swap (env-rstack env)))))
+
+(define-word else  t nil
+  (let (branch code stt tmp)
+    (setf (env-rstack env) (swap (env-rstack env)))
+    (setf tmp (pop (env-rstack env)))
+    (setf code (word-code (second (env-rstack env))))
+    (log:debug code)
+    (dolist (w code)
+      (when (not (eq stt :done))
+	(log:debug w)
+	(case (and (word-p w) (setf w (word-name w)))
+	  (else (setf stt :if))
+	  (then (setf stt :done)))
+	(unless (member w '(if then else))
+	  (case stt
+	    ((:done :if) (push w branch))))))
+    (log:debug "else branch ~s" branch)
+    (log:debug (length branch))
+		    
+    (case tmp
+      (:did-if
+       (setf (env-nb-skip env) (length branch))
+       (setf (env-skipp env) t))
+      (:did-not-if (setf (env-nb-skip env) 0)
+		   (setf (env-skipp env) nil))
+      (t (push tmp (env-rstack env))))))
+
+(define-word then  t nil
+  (let (omg)
+    (log:debug "then ~s" (env-rstack env))))
+
+(define-word skip  t nil
+  (progn
+   (setf (env-skipp env) t)
+   (setf (env-nb-skip env) (stack-pop env))))
+
+(define-word rec  t nil
+  (progn (push :recurse (env-rstack env))
+	 (setf (env-rstack env) (swap (env-rstack env)))))
+
+(define-word |:|  t nil
+    (setf (env-state env) :compile))
+
+(define-word |;|  t t
+    (progn
+      (setf (env-state env) :interpret)
+      (add-word (word-name (env-defining env))
+		(nreverse (word-code (env-defining env)))env)
+      (setf (env-defining env) nil)))
+
+
 

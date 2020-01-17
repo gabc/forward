@@ -27,7 +27,7 @@
   (setf (env-skipp env) nil)
   (setf (env-nb-skip env) 0)
   (setf (env-state env) :interpret)
-  (init-dict env))
+  (build-dictionary env))
 (defun runt (cmds)
   (env-stack (runte cmds)))
 (defmacro runte (cmds)
