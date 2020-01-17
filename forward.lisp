@@ -22,7 +22,7 @@
 (defstruct word
   name code here core immediate)
 (defstruct env
-  rstack stack dictionary current-word stream exit state nb-skip skipp defining)
+  rstack stack dictionary current-word stream exit state nb-skip skipp defining variables)
 
 (defun add-word (name code env &optional (core nil) immediate)
   (let ((new-word (make-word :name name
@@ -68,6 +68,7 @@
   (setf (env-stack env) nil)
   (setf (env-skipp env) nil)
   (setf (env-nb-skip env) 0)
+  (setf (env-variables env) (make-hash-table))
   (setf (env-state env) :interpret)
   (build-dictionary env))
 
@@ -100,9 +101,7 @@
        (stack-push (car (cdr word)) env)))
     (symbol
      (log:debug "Is symbol ~s" word)
-     (when (boundp word)
-       (log:debug "Evaled ~s" (eval word))
-       (stack-push (eval word) env)))
+     (stack-push word env))
     (word
      (if (word-core word)		; Just run the code
 	 (funcall (word-code word) env)
@@ -114,7 +113,9 @@
     (simple-array
      (push word (word-code (env-defining env))))
     (symbol
-     (compile-new-word word env))
+     (if (not (env-defining env))
+	 (compile-new-word word env)
+	 (push word (word-code (env-defining env)))))
     (cons
      (when (eq (car word) 'QUOTE)
        (push (car (cdr  word)) (word-code (env-defining env)))))
@@ -127,7 +128,7 @@
 	     (progn
 	       (log:debug "immediate, compile ~s" word)
 	       (with-rstack word env
-		(interpret word env)))
+		 (interpret word env)))
 	     (progn
 	       (log:debug "nonimmediate, compile ~s" word)
 	       (push word (word-code (env-defining env)))))))))
@@ -304,11 +305,20 @@
     (setf (env-state env) :compile))
 
 (define-word |;|  t t
-    (progn
-      (setf (env-state env) :interpret)
-      (add-word (word-name (env-defining env))
-		(nreverse (word-code (env-defining env)))env)
-      (setf (env-defining env) nil)))
+  (progn
+    (setf (env-state env) :interpret)
+    (add-word (word-name (env-defining env))
+	      (nreverse (word-code (env-defining env)))env)
+    (setf (env-defining env) nil)))
+
+(define-word |!| t nil
+  (let ((var (stack-pop env))
+	(value (stack-pop env)))
+    (setf (gethash var (env-variables env)) value)))
+
+(define-word |@| t nil
+  (let ((var (stack-pop env)))
+    (stack-push (gethash var (env-variables env)) env)))
 
 
 

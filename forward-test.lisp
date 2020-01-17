@@ -46,7 +46,9 @@
  (5am:is (equal '(3) (runt "2 skip 1 2 3")))
  (5am:is (equal '(0 0) (runt ": foo dup 0 = if 0 else 1 - rec then ; 4 foo")))
  (5am:is (equal '(3) (runt ": foo skip 1 2 3 ; 2 foo")))
- (5am:is (equal '(3) (runt ": foo 2 skip 1 2 3 ; foo"))))
+ (5am:is (equal '(3) (runt ": foo 2 skip 1 2 3 ; foo")))
+ (5am:is (equal '(1) (runt "1 fa ! fa @")))
+ (5am:is (equal '(1) (runt ": quz qw ! ; 1 quz qw @"))))
 
 (5am:test
  ifs
