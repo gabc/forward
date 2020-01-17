@@ -140,16 +140,22 @@
 
 (defun run (word env)
   (declare (optimize (speed 0) (space 0) (debug 3)))
-  (dolist (w word)
-    (log:debug (env-rstack env))
-    (if (> (env-nb-skip env) 0)
-	(progn
-	  (log:debug "skipping ~s" w)
-	  (decf (env-nb-skip env)))
-	(multiple-value-bind (entry exist) (find-word w env)
-	  (declare (ignore exist))
-	  (log:debug (env-state env))
-	  (run-word entry env)))))
+  (tagbody
+     recurse
+     (dolist (w word)
+       (log:debug (env-rstack env))
+       (if (> (env-nb-skip env) 0)
+	   (progn
+	     (log:debug "skipping ~s" w)
+	     (decf (env-nb-skip env)))
+	   (multiple-value-bind (entry exist) (find-word w env)
+	     (declare (ignore exist))
+	     (when (eq :recurse (car (env-rstack env)))
+	       (log:debug "recured")
+	       (pop (env-rstack env))
+	       (go recurse))
+	     (log:debug (env-state env))
+	     (run-word entry env))))))
 
 (defun init-dict (env)
   (add-word 's '(format t "~s" (reverse (env-stack env))) env t)
@@ -224,6 +230,9 @@
 	    env t)
   (add-word 'skip '(progn (setf (env-skipp env) t)
 		    (setf (env-nb-skip env) (stack-pop env)))
+	    env t)
+  (add-word 'rec '(progn (push :recurse (env-rstack env))
+		  (setf (env-rstack env) (swap (env-rstack env))))
 	    env t)
   (add-word '|:| '(setf (env-state env) :compile) env t)
   (add-word '|;| '(progn
