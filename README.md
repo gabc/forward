@@ -1,9 +1,3 @@
-# forward
-### _Your Name <your.name@example.com>_
+This is a stack machine. With a forth~ish interpreter.
 
-This is a project to do ... something.
-
-## License
-
-Specify license here
-
+Yes, it is broken.
