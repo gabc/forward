@@ -53,16 +53,15 @@
  (5am:is (equal '(1 1) (runt ": a 1 ; : b a ; : c b ; : d c ; : e d ; a e")))
  (5am:is (equal '(3) (runt "2 skip 1 2 3")))
  (5am:is (equal '(3) (runt ": foo skip 1 2 3 ; 2 foo")))
- (5am:is (equal '(3) (runt ": foo 2 skip 1 2 3 ; foo")))
- ;; (5am:is (equal '(1) (runt "t if 1 then")))
- ;; (5am:is (equal '(2) (runt "1 1 t if + else - then")))
- ;; (5am:is (equal '(0) (runt "1 1 nil if + else - then")))
- )
+ (5am:is (equal '(3) (runt ": foo 2 skip 1 2 3 ; foo"))))
+
 (5am:test
  ifs
  (5am:is (equal '(2) (runt ": foo if 2 else 10 then ; t foo")))
  (5am:is (equal '(10) (runt ": foo if 2 else 10 then ; nil foo")))
- (5am:is (equal '(22) (runt ": bar if 22 else 33 then ; : foo if bar else 10 then ; t t foo")))
- )
+ (5am:is (equal '(1) (runt ": foo if 1 else 2 then ; : bar foo ; t bar")))
+ (5am:is (equal '(2) (runt ": foo if 1 else 2 then ; : bar foo ; nil bar")))
+ (5am:is (equal '(22) (runt ": bar if 22 else 33 then ; : foo if bar else 10 then ; t t foo"))))
+
 (defun at ()
-  (5am:run! '(tricky forward1)))
+  (5am:run! '(tricky forward1 ifs)))

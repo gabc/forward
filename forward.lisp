@@ -22,7 +22,7 @@
 (defstruct word
   name code here core immediate)
 (defstruct env
-  rstack stack dictionary current-word stream exit state nb-skip skipp)
+  rstack stack dictionary current-word stream exit state nb-skip skipp defining)
 
 (defun add-word (name code env &optional (core nil) immediate)
   (let ((new-word (make-word :name name
@@ -96,21 +96,22 @@
     (word
      (if (word-core word)		; Just run the code
 	 (funcall (word-code word) env)
-	 (run (word-code word) env)))))
+	 (progn      (setf (env-current-word env) word)
+	  (run (word-code word) env))))))
 
 (defun assemble (word env)
   (etypecase word
     (simple-array
-     (push word (word-code (env-current-word env))))
+     (push word (word-code (env-defining env))))
     (symbol
      (compile-new-word word env))
     (cons
      (when (eq (car word) 'QUOTE)
-       (push (car (cdr  word)) (word-code (env-current-word env)))))
+       (push (car (cdr  word)) (word-code (env-defining env)))))
     (number
-     (push word (word-code (env-current-word env))))
+     (push word (word-code (env-defining env))))
     (word
-     (if (not (env-current-word env))
+     (if (not (env-defining env))
 	 (compile-new-word word env)
 	 (if (word-immediate word)
 	     (progn
@@ -119,11 +120,11 @@
 		(interpret word env)))
 	     (progn
 	       (log:debug "nonimmediate, compile ~s" word)
-	       (push word (word-code (env-current-word env)))))))))
+	       (push word (word-code (env-defining env)))))))))
 (defun compile-new-word (word env)
-  (when (not (env-current-word env))
+  (when (not (env-defining env))
     (log:debug word)
-    (setf (env-current-word env) (make-word :name word :core nil
+    (setf (env-defining env) (make-word :name word :core nil
 					    :here (length (env-dictionary env))))))
 
 (defun run-word (word env)
@@ -134,7 +135,7 @@
       (interpret word env)))
     (:compile
      (log:debug "compiling ~s" word)
-     (log:debug (when (env-current-word env) (word-code (env-current-word env))))
+     (log:debug (when (env-defining env) (word-code (env-defining env))))
      (assemble word env))))
 
 (defun run (word env)
@@ -155,6 +156,10 @@
   (add-word 'rs '(format t "~s" (reverse (env-rstack env))) env t)
   (add-word '>r '(push (stack-pop env) (env-rstack env)) env t)
   (add-word 'r> '(push (pop (env-rstack env)) (env-stack env)) env t)
+  (add-word 'dup '(let ((tmp (stack-pop env)))
+		   (push tmp (env-stack env))
+		   (push tmp (env-stack env))) env t)
+  (add-word 'swap '(setf (env-stack env) (swap (env-stack env))) env t)
   (add-word '+ '(stack-push (+ (stack-pop env) (stack-pop env)) env) env t)
   (add-word '* '(stack-push (* (stack-pop env) (stack-pop env)) env) env t)
   (add-word '- '(let ((temp (stack-pop env))) (stack-push (- (stack-pop env) temp) env)) env t)
@@ -168,7 +173,7 @@
 			 (log:debug (env-stream env))
 			 (loop while (not (eq (setf tmp (forth-read env)) '\))))) env t)
   (add-word 'if '(let (branch code stt)
-		  (setf code (word-code (car (last (env-rstack env)))))
+		  (setf code (word-code (second (env-rstack env))))
 		  (log:debug code)
 		  (dolist (w code)
 		    (when (not (eq stt :done))
@@ -189,7 +194,9 @@
 		  (setf (env-rstack env) (swap (env-rstack env))))
 	    env t)
   (add-word 'else '(let (branch code stt tmp)
-		    (setf code (word-code (car (last (env-rstack env)))))
+		    (setf (env-rstack env) (swap (env-rstack env)))
+		    (setf tmp (pop (env-rstack env)))
+		    (setf code (word-code (second (env-rstack env))))
 		    (log:debug code)
 		    (dolist (w code)
 		      (when (not (eq stt :done))
@@ -202,22 +209,18 @@
 			    ((:done :if) (push w branch))))))
 		    (log:debug "else branch ~s" branch)
 		    (log:debug (length branch))
-		    (setf (env-rstack env) (swap (env-rstack env)))
-		    (log:debug (env-rstack env))
-		    (setf tmp (pop (env-rstack env)))
 		    
 		    (case tmp
 		      (:did-if
 		       (setf (env-nb-skip env) (length branch))
 		       (setf (env-skipp env) t))
 		      (:did-not-if (setf (env-nb-skip env) 0)
-			       (setf (env-skipp env) nil))
+				   (setf (env-skipp env) nil))
 		      (t (push tmp (env-rstack env)))))
 	    env t)
   (add-word 'then '(progn
 		    (let (omg)
-		      (when (member (setf omg (pop (env-rstack env))) '(:did-if :did-not-if))
-			(push omg (env-rstack env)))))
+		      (log:debug "then ~s" (env-rstack env))))
 	    env t)
   (add-word 'skip '(progn (setf (env-skipp env) t)
 		    (setf (env-nb-skip env) (stack-pop env)))
@@ -225,9 +228,9 @@
   (add-word '|:| '(setf (env-state env) :compile) env t)
   (add-word '|;| '(progn
 		   (setf (env-state env) :interpret)
-		   (add-word (word-name (env-current-word env))
-		    (nreverse (word-code (env-current-word env)))env)
-		   (setf (env-current-word env) nil))
+		   (add-word (word-name (env-defining env))
+		    (nreverse (word-code (env-defining env)))env)
+		   (setf (env-defining env) nil))
 	    env t t))
 
 (set-macro-character #\: (lambda (stream char) '|:|) t *forth-readtable*)
