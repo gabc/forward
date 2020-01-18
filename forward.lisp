@@ -85,7 +85,6 @@
      (pop (env-rstack ,env))))
 
 (defun interpret  (word env)
-  (declare (optimize (speed 0) (space 0) (debug 3)))
   (log:debug word)
   (etypecase word
     (simple-array
@@ -105,7 +104,6 @@
 		     (run (word-code word) env))))))
 
 (defun assemble (word env)
-  (declare (optimize (speed 0) (space 0) (debug 3)))
   (etypecase word
     (simple-array
      (push word (word-code (env-defining env))))
@@ -143,7 +141,6 @@
        do (run-str line env))))
 
 (defun run-str (str env)
-  (declare (optimize (speed 0) (space 0) (debug 3)))
   (with-open-stream (s (make-string-input-stream str))
     (setf (env-stream env) s)
     (setf *exit-flag* nil)
@@ -158,7 +155,6 @@
       (run (reverse words) env))))
 
 (defun run-word (word env)
-  (declare (optimize (speed 0) (space 0) (debug 3)))
   (log:debug word)
   (case (env-state env)
     (:interpret
@@ -170,7 +166,6 @@
      (assemble word env))))
 
 (defun run (word env)
-  (declare (optimize (speed 0) (space 0) (debug 3)))
   (tagbody
    recurse
      (dolist (w word)
