@@ -165,6 +165,9 @@
 	     (when (eq :recurse (car (env-rstack env)))
 	       (log:debug "recured")
 	       (pop (env-rstack env))
+	       (when (member (car (env-rstack env)) '(:did-if :did-not-if))
+		 ;; This feels like a hack. We should clean up better.
+		 (pop (env-rstack env)))
 	       (go recurse))
 	     (log:debug (env-state env))
 	     (run-word entry env))))))
@@ -204,10 +207,15 @@
   (format t "~s" (reverse (env-rstack env))))
 
 (define-word >r  t nil
-  (push (stack-pop env) (env-rstack env)))
+  (progn
+    (push (stack-pop env) (env-rstack env))
+    (setf (env-rstack env) (swap (env-rstack env)))))
 
 (define-word r>  t nil
   (push (pop (env-rstack env)) (env-stack env)))
+
+(define-word drop t nil
+  (pop (env-stack env)))
 
 (define-word dup  t nil
   (let ((tmp (stack-pop env)))
@@ -290,7 +298,15 @@
       (t (push tmp (env-rstack env))))))
 
 (define-word then  t nil
-  (log:debug "then ~s" (env-rstack env)))
+  (let (tmp)
+    ;; We need to clean up the rstack.
+    (log:debug "then1 ~s" (env-rstack env))
+    (setf (env-rstack env) (swap (env-rstack env)))
+    (setf tmp (pop (env-rstack env)))
+    (unless (or (eq :did-not-if tmp) (eq :did-if tmp))
+      (push tmp (env-rstack env))
+      (setf (env-rstack env) (swap (env-rstack env))))
+    (log:debug "then ~s" (env-rstack env))))
 
 (define-word skip  t nil
   (progn

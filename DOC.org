@@ -41,6 +41,12 @@ application is layered on top of.
     specific package. I should be able to be more flexible for that.
 
 * Ideas
-  - Have a eval-mode.
-    ':' would set it to :compile and it would add read word until a
-    ';' is encountered.
+  - Variable as words.
+    Have it so "var VARIABLE" creates a new word 'var' and that when
+    it is called it puts itself, or it's holding-space on the stack.
+    So that !/@ can use it correctly.
+
+    ! could write in it's `code' field. And @ read from it.
+
+    This seems like a lot of work compared to the hashtable of
+    variables I have now.

@@ -48,7 +48,8 @@
  (5am:is (equal '(3) (runt ": foo skip 1 2 3 ; 2 foo")))
  (5am:is (equal '(3) (runt ": foo 2 skip 1 2 3 ; foo")))
  (5am:is (equal '(1) (runt "1 fa ! fa @")))
- (5am:is (equal '(1) (runt ": quz qw ! ; 1 quz qw @"))))
+ (5am:is (equal '(1) (runt ": quz qw ! ; 1 quz qw @")))
+ (5am:is (equal '(120) (runt ": not if nil else t then ; : fac dup 0 = not if dup a ! * a @ 1 - rec then drop ; 1 5 fac"))))
 
 (5am:test
  ifs
