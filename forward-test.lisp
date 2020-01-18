@@ -6,26 +6,13 @@
 
 (defvar foo 4)
 (defvar test-env (make-env))
-(defun run-str (str)
-  (with-open-stream (s (make-string-input-stream str))
-    (setf (env-stream test-env) s)
-    (setf *exit-flag* nil)
-    (let (words)
-      (handler-case
-	  (loop while (not *exit-flag*)
-	     do
-	       (let ((word (forth-read test-env)))
-		 (push word words)))
-	(end-of-file (c)
-	  (declare (ignore c))))
-	(run (reverse words) test-env))))
 
 (defun runt (cmds)
   (env-stack (runte cmds)))
 (defmacro runte (cmds)
   `(progn
      (setf test-env (new-env))
-     (run-str ,cmds)
+     (run-str ,cmds test-env)
      test-env))
 
 (defvar *all-test* nil)

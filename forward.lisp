@@ -133,12 +133,26 @@
     (setf (env-defining env) (make-word :name word :core nil
 					:here (length (env-dictionary env))))))
 
+(defun run-str (str env)
+  (with-open-stream (s (make-string-input-stream str))
+    (setf (env-stream env) s)
+    (setf *exit-flag* nil)
+    (let (words)
+      (handler-case
+	  (loop while (not *exit-flag*)
+	     do
+	       (let ((word (forth-read env)))
+		 (push word words)))
+	(end-of-file (c)
+	  (declare (ignore c))))
+	(run (reverse words) env))))
+
 (defun run-word (word env)
   (log:debug word)
   (case (env-state env)
     (:interpret
      (with-rstack word env
-      (interpret word env)))
+       (interpret word env)))
     (:compile
      (log:debug "compiling ~s" word)
      (log:debug (when (env-defining env) (word-code (env-defining env))))
@@ -147,7 +161,7 @@
 (defun run (word env)
   (declare (optimize (speed 0) (space 0) (debug 3)))
   (tagbody
-     recurse
+   recurse
      (dolist (w word)
        (log:debug (env-rstack env))
        (if (> (env-nb-skip env) 0)
