@@ -66,6 +66,7 @@
   (setf (env-stream env) t)
   (setf (env-dictionary env) nil)
   (setf (env-stack env) nil)
+  (setf (env-rstack env) nil)
   (setf (env-skipp env) nil)
   (setf (env-nb-skip env) 0)
   (setf (env-variables env) (make-hash-table))
@@ -212,7 +213,9 @@
     (setf (env-rstack env) (swap (env-rstack env)))))
 
 (define-word r>  t nil
-  (push (pop (env-rstack env)) (env-stack env)))
+  (progn
+    (setf (env-rstack env) (swap (env-rstack env)))
+    (push (pop (env-rstack env)) (env-stack env))))
 
 (define-word drop t nil
   (pop (env-stack env)))
