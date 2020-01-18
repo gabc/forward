@@ -1,0 +1,2 @@
+: not if nil else t then ;
+: fac dup 0 = not if dup >r * r> 1 - rec then drop ;

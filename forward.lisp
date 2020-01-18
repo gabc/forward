@@ -2,12 +2,8 @@
 
 (in-package #:forward)
 (declaim (optimize (speed 0) (space 0) (debug 3)))
-(defvar *dictionary* '()
-  "actually a list of words.")
 (defvar *forth-readtable* (copy-readtable))
-(defvar *stack* '())
-(defvar *exit-flag* nil
-  "Can't think of a better way to leave the thing.")
+(defvar *stdlib-path* (merge-pathnames #P"lib.fw" *default-pathname-defaults*))
 
 (defun stack-push (value env)
   (push value (env-stack env)))
@@ -68,6 +64,7 @@
 		       :variables (make-hash-table)
 		       :state :interpret)))
     (build-dictionary env)
+    (load-file *stdlib-path* env)
     env))
 
 (defun forward ()
