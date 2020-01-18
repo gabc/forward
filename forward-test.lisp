@@ -24,8 +24,7 @@
   (env-stack (runte cmds)))
 (defmacro runte (cmds)
   `(progn
-     (setf test-env (make-env))
-     (clean-all test-env)
+     (setf test-env (new-env))
      (run-str ,cmds)
      test-env))
 

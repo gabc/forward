@@ -31,7 +31,7 @@
 				       code)
 			     :here (length (env-dictionary env))
 			     :core core
-			     :immediate immediate))) 
+			     :immediate immediate)))
     (push new-word (env-dictionary env))))
 
 (defun drop-word (name env)
@@ -62,26 +62,19 @@
   (let ((*readtable* *forth-readtable*))
     (read (env-stream env))))
 
-(defun clean-all (env)
-  (setf (env-stream env) t)
-  (setf (env-dictionary env) nil)
-  (setf (env-stack env) nil)
-  (setf (env-rstack env) nil)
-  (setf (env-skipp env) nil)
-  (setf (env-nb-skip env) 0)
-  (setf (env-variables env) (make-hash-table))
-  (setf (env-state env) :interpret)
-  (build-dictionary env))
+(defun new-env (&optional (stream t))
+  (let ((env (make-env :stream stream
+		       :variables (make-hash-table)
+		       :state :interpret)))
+    (build-dictionary env)
+    env))
 
 (defun forward ()
-  (let ((env (make-env)))
-    (clean-all env)
-    (setf (env-stream env) *standard-input*)
-    (build-dictionary env)
+  (let ((env (new-env *standard-input*)))
     (loop while (not (env-exit env))
        do
 	 (let ((word (forth-read env)))
-           (run (list word) env)))
+	   (run (list word) env)))
     env))
 
 (defmacro with-rstack (word env &body body)
@@ -271,7 +264,7 @@
 	(push :did-if (env-rstack env))
 	(progn (push :did-not-if (env-rstack env))
 	       (setf (env-nb-skip env) (length branch)
-		     (env-skipp env) t))) 
+		     (env-skipp env) t)))
     (setf (env-rstack env) (swap (env-rstack env)))))
 
 (define-word else  t nil
@@ -291,7 +284,7 @@
 	    ((:done :if) (push w branch))))))
     (log:debug "else branch ~s" branch)
     (log:debug (length branch))
-		    
+
     (case tmp
       (:did-if
        (setf (env-nb-skip env) (length branch))
@@ -338,6 +331,3 @@
 (define-word |@| t nil
   (let ((var (stack-pop env)))
     (stack-push (gethash var (env-variables env)) env)))
-
-
-
