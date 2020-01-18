@@ -1,7 +1,7 @@
 ;;;; forward.lisp
 
 (in-package #:forward)
-
+(declaim (optimize (speed 0) (space 0) (debug 3)))
 (defvar *dictionary* '()
   "actually a list of words.")
 (defvar *forth-readtable* (copy-readtable))
@@ -64,6 +64,7 @@
 
 (defun new-env (&optional (stream t))
   (let ((env (make-env :stream stream
+		       :nb-skip 0
 		       :variables (make-hash-table)
 		       :state :interpret)))
     (build-dictionary env)
@@ -84,6 +85,7 @@
      (pop (env-rstack ,env))))
 
 (defun interpret  (word env)
+  (declare (optimize (speed 0) (space 0) (debug 3)))
   (log:debug word)
   (etypecase word
     (simple-array
@@ -100,9 +102,10 @@
      (if (word-core word)		; Just run the code
 	 (funcall (word-code word) env)
 	 (progn      (setf (env-current-word env) word)
-	  (run (word-code word) env))))))
+		     (run (word-code word) env))))))
 
 (defun assemble (word env)
+  (declare (optimize (speed 0) (space 0) (debug 3)))
   (etypecase word
     (simple-array
      (push word (word-code (env-defining env))))
@@ -133,7 +136,14 @@
     (setf (env-defining env) (make-word :name word :core nil
 					:here (length (env-dictionary env))))))
 
+(defun load-file (path env)
+  (with-open-file (fd path)
+    (loop for line = (read-line fd nil nil)
+       while line
+       do (run-str line env))))
+
 (defun run-str (str env)
+  (declare (optimize (speed 0) (space 0) (debug 3)))
   (with-open-stream (s (make-string-input-stream str))
     (setf (env-stream env) s)
     (setf *exit-flag* nil)
@@ -145,9 +155,10 @@
 		 (push word words)))
 	(end-of-file (c)
 	  (declare (ignore c))))
-	(run (reverse words) env))))
+      (run (reverse words) env))))
 
 (defun run-word (word env)
+  (declare (optimize (speed 0) (space 0) (debug 3)))
   (log:debug word)
   (case (env-state env)
     (:interpret
