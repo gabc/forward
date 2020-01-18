@@ -29,8 +29,10 @@
      (run-str ,cmds)
      test-env))
 
+(defvar *all-test* nil)
 (defmacro deftest (name &body tests)
   (let (res)
+    (pushnew name *all-test*)
     (dolist (test tests)
       (if (or (eq '5am:is (car test)) (eq 'is (car test)))
 	  ;; We can still have the old way.
@@ -71,4 +73,4 @@
  ((22) ": bar if 22 else 33 then ; : foo if bar else 10 then ; t t foo"))
 
 (defun at ()
-  (5am:run! '(tricky forward1 ifs)))
+  (5am:run! (reverse *all-test*)))
