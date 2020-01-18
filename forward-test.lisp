@@ -29,36 +29,46 @@
      (run-str ,cmds)
      test-env))
 
-(5am:test
- forward1
- (5am:is (equal '(2) (runt "1 1 +")))
- (5am:is (equal '(2 1) (runt "1 1 1 +")))
- (5am:is (equal '(3) (runt "1 1 1 + +")))
- (5am:is (equal '(8) (runt "2 2 2 + *")))
- (5am:is (equal '(8) (runt ": foo 2 2 + ; 2 foo *"))))
+(defmacro deftest (name &body tests)
+  (let (res)
+    (dolist (test tests)
+      (if (or (eq '5am:is (car test)) (eq 'is (car test)))
+	  ;; We can still have the old way.
+	  (push test res)
+	  (push `(5am:is (equal ',(car test) (runt ,(car (cdr test))))) res)))
+    `(5am:test ,name
+	       ,@res)))
 
-(5am:test
- tricky
- ;; This one test to make sure that redefining words still call the older one.
- ;; See hyperstatic environment.
- (5am:is (equal '(4 2) (runt ": foo 2 ; : bar foo ; bar : foo 4 ; bar")))
- (5am:is (equal '(1 1) (runt ": a 1 ; : b a ; : c b ; : d c ; : e d ; a e")))
- (5am:is (equal '(3) (runt "2 skip 1 2 3")))
- (5am:is (equal '(0 0) (runt ": foo dup 0 = if 0 else 1 - rec then ; 4 foo")))
- (5am:is (equal '(3) (runt ": foo skip 1 2 3 ; 2 foo")))
- (5am:is (equal '(3) (runt ": foo 2 skip 1 2 3 ; foo")))
- (5am:is (equal '(1) (runt "1 fa ! fa @")))
- (5am:is (equal '(1) (runt ": quz qw ! ; 1 quz qw @")))
- (5am:is (equal '(120) (runt ": not if nil else t then ; : fac dup 0 = not if dup a ! * a @ 1 - rec then drop ; 1 5 fac")))
- (5am:is (equal '(120) (runt ": not if nil else t then ; : fac dup 0 = not if dup >r * r> 1 - rec then drop ; 1 5 fac"))))
+(deftest
+    forward1
+  ((2) "1 1 +")
+  ((2 1) "1 1 1 +")
+  ((3) "1 1 1 + +")
+  ((8) "2 2 2 + *")
+  ((8) "2 2 2 + *"": foo 2 2 + ; 2 foo *"))
 
-(5am:test
+(deftest
+    tricky
+  ;; This one test to make sure that redefining words still call the older one.
+  ;; See hyperstatic environment.
+  ((4 2) ": foo 2 ; : bar foo ; bar : foo 4 ; bar")
+  ((1 1) ": a 1 ; : b a ; : c b ; : d c ; : e d ; a e")
+  ((3) "2 skip 1 2 3")
+  ((0 0) ": foo dup 0 = if 0 else 1 - rec then ; 4 foo")
+  ((3) ": foo skip 1 2 3 ; 2 foo")
+  ((3) ": foo 2 skip 1 2 3 ; foo")
+  ((1) "1 fa ! fa @")
+  ((1) ": quz qw ! ; 1 quz qw @")
+  ((120) ": not if nil else t then ; : fac dup 0 = not if dup a ! * a @ 1 - rec then drop ; 1 5 fac")
+  ((120) ": not if nil else t then ; : fac dup 0 = not if dup >r * r> 1 - rec then drop ; 1 5 fac"))
+
+(deftest
  ifs
- (5am:is (equal '(2) (runt ": foo if 2 else 10 then ; t foo")))
- (5am:is (equal '(10) (runt ": foo if 2 else 10 then ; nil foo")))
- (5am:is (equal '(1) (runt ": foo if 1 else 2 then ; : bar foo ; t bar")))
- (5am:is (equal '(2) (runt ": foo if 1 else 2 then ; : bar foo ; nil bar")))
- (5am:is (equal '(22) (runt ": bar if 22 else 33 then ; : foo if bar else 10 then ; t t foo"))))
+ ((2) ": foo if 2 else 10 then ; t foo")
+ ((10) ": foo if 2 else 10 then ; nil foo")
+ ((1) ": foo if 1 else 2 then ; : bar foo ; t bar")
+ ((2) ": foo if 1 else 2 then ; : bar foo ; nil bar")
+ ((22) ": bar if 22 else 33 then ; : foo if bar else 10 then ; t t foo"))
 
 (defun at ()
   (5am:run! '(tricky forward1 ifs)))
