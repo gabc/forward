@@ -14,6 +14,9 @@
      (setf test-env (new-env))
      (run-str ,cmds test-env)
      test-env))
+(defun r (str env)
+  (run-str str env)
+  (env-stack env))
 
 (defvar *all-test* nil)
 (defmacro deftest (name &body tests)
@@ -52,12 +55,15 @@
   ((120) ": not if nil else t then ; : fac dup 0 = not if dup >r * r> 1 - rec then drop ; 1 5 fac"))
 
 (deftest
- ifs
- ((2) ": foo if 2 else 10 then ; t foo")
- ((10) ": foo if 2 else 10 then ; nil foo")
- ((1) ": foo if 1 else 2 then ; : bar foo ; t bar")
- ((2) ": foo if 1 else 2 then ; : bar foo ; nil bar")
- ((22) ": bar if 22 else 33 then ; : foo if bar else 10 then ; t t foo"))
+    ifs
+  ((2) ": foo if 2 else 10 then ; t foo")
+  ((10) ": foo if 2 else 10 then ; nil foo")
+  ((1) ": foo if 1 else 2 then ; : bar foo ; t bar")
+  ((1) ": foo if 1 else 2 then ; : bar if foo then ; t t bar")
+  ((2) ": foo if 1 else 2 then ; : bar foo ; nil bar")
+  ((1) ": foo if 1 else 2 then ; : bar if foo else foo then ; t t bar")
+  ((2) ": foo if 1 else 2 then ; : bar if foo else foo then ; nil t bar")
+  ((22) ": bar if 22 else 33 then ; : foo if bar else 10 then ; t t foo"))
 
 (defun at ()
   (5am:run! (reverse *all-test*)))

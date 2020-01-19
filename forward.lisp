@@ -298,7 +298,8 @@
   (let* ((old-tick (stack-pop env))
 	 (word (stack-pop env)))
     (log:debug "then ticks o:~s n:~s" old-tick (env-tick env))
-    (rplaca word (- (env-tick env) old-tick))))
+    ;; Remove 1 because then will not appear in the word.
+    (rplaca word (- (env-tick env) old-tick 1))))
 
 (define-word push t nil
   (let ((place (stack-pop env))
