@@ -5,6 +5,13 @@
 (defvar *forth-readtable* (copy-readtable))
 (defvar *stdlib-path* (merge-pathnames #P"lib.fw" *default-pathname-defaults*))
 
+(defun mkstr (&rest args)
+  (with-output-to-string (s)
+    (dolist (a args) (princ a s))))
+
+(defun symb (&rest args)
+  (values (intern (apply #'mkstr args))))
+
 (defun stack-push (value env)
   (push value (env-stack env)))
 (defun stack-pop (env)
@@ -14,11 +21,16 @@
 	(tmpp (pop stack)))
     (push tmp stack)
     (push tmpp stack)))
+(defmacro nswap (stack env)
+  (let ((sname (symb  "ENV-" (symbol-name stack))))
+    `(setf (,sname ,env) (swap (,sname ,env)))))
 
 (defstruct word
   name code here core immediate)
 (defstruct env
-  rstack stack dictionary current-word stream exit state nb-skip skipp defining variables)
+  rstack stack dictionary current-word stream
+  exit state nb-skip skipp defining variables
+  tick)
 
 (defun add-word (name code env &optional (core nil) immediate)
   (let ((new-word (make-word :name name
@@ -61,6 +73,7 @@
 (defun new-env (&optional (stream t))
   (let ((env (make-env :stream stream
 		       :nb-skip 0
+		       :tick 0
 		       :variables (make-hash-table)
 		       :state :interpret)))
     (build-dictionary env)
@@ -166,6 +179,7 @@
   (tagbody
    recurse
      (dolist (w word)
+       (incf (env-tick env))
        (log:debug (env-rstack env))
        (if (> (env-nb-skip env) 0)
 	   (progn
@@ -175,13 +189,14 @@
 	     (declare (ignore exist))
 	     (when (eq :recurse (car (env-rstack env)))
 	       (log:debug "recured")
-	       (pop (env-rstack env))
-	       (when (member (car (env-rstack env)) '(:did-if :did-not-if))
-		 ;; This feels like a hack. We should clean up better.
-		 (pop (env-rstack env)))
+	       (pop (env-rstack env))	;pop :recurse
 	       (go recurse))
 	     (log:debug (env-state env))
 	     (run-word entry env))))))
+
+(defun skip (nb env)
+  (setf (env-skipp env) t)
+  (setf (env-nb-skip env) nb))
 
 (defmacro define-word (name core immediate body)
   `(progn
@@ -262,69 +277,48 @@
 (define-word immediate  t nil
   (setf (word-immediate (car (env-dictionary env))) t))
 
-(define-word if  t nil
-  (let (branch code stt)
-    (setf code (word-code (second (env-rstack env))))
-    (log:debug code)
-    (dolist (w code)
-      (when (not (eq stt :done))
-	(log:debug w)
-	(case (and (word-p w) (setf w (word-name w)))
-	  (if (setf stt :if))
-	  ((else then) (setf stt :done)))
-	(unless (member w '(if then else))
-	  (case stt
-	    ((:done :if) (push w branch))))))
-    (log:debug "if branch ~s" branch)
-    (log:debug (length branch))
-    (if (eq t (stack-pop env))
-	(push :did-if (env-rstack env))
-	(progn (push :did-not-if (env-rstack env))
-	       (setf (env-nb-skip env) (length branch)
-		     (env-skipp env) t)))
-    (setf (env-rstack env) (swap (env-rstack env)))))
-
-(define-word else  t nil
-  (let (branch code stt tmp)
-    (setf (env-rstack env) (swap (env-rstack env)))
-    (setf tmp (pop (env-rstack env)))
-    (setf code (word-code (second (env-rstack env))))
-    (log:debug code)
-    (dolist (w code)
-      (when (not (eq stt :done))
-	(log:debug w)
-	(case (and (word-p w) (setf w (word-name w)))
-	  (else (setf stt :if))
-	  (then (setf stt :done)))
-	(unless (member w '(if then else))
-	  (case stt
-	    ((:done :if) (push w branch))))))
-    (log:debug "else branch ~s" branch)
-    (log:debug (length branch))
-
-    (case tmp
-      (:did-if
-       (setf (env-nb-skip env) (length branch))
-       (setf (env-skipp env) t))
-      (:did-not-if (setf (env-nb-skip env) 0)
-		   (setf (env-skipp env) nil))
-      (t (push tmp (env-rstack env))))))
-
-(define-word then  t nil
-  (let (tmp)
-    ;; We need to clean up the rstack.
-    (log:debug "then1 ~s" (env-rstack env))
-    (setf (env-rstack env) (swap (env-rstack env)))
-    (setf tmp (pop (env-rstack env)))
-    (unless (or (eq :did-not-if tmp) (eq :did-if tmp))
-      (push tmp (env-rstack env))
-      (setf (env-rstack env) (swap (env-rstack env))))
-    (log:debug "then ~s" (env-rstack env))))
-
-(define-word skip  t nil
+(define-word if t t
   (progn
-   (setf (env-skipp env) t)
-   (setf (env-nb-skip env) (stack-pop env))))
+    (assemble 0 env)
+    (stack-push (word-code (env-defining env)) env)
+    (stack-push (env-tick env) env)
+    (assemble (find-word '?skip env) env)))
+
+(define-word else  t t
+  (let* ((old-tick (stack-pop env))
+	 (word (stack-pop env)))
+    (assemble 0 env)
+    (stack-push (word-code (env-defining env)) env)
+    (stack-push (env-tick env) env)
+    (assemble (find-word 'skip env) env)
+    (log:debug "else ticks o:~s n:~s" old-tick (env-tick env))
+    (rplaca word (+ 1 (- (env-tick env) old-tick)))))
+
+(define-word then t t
+  (let* ((old-tick (stack-pop env))
+	 (word (stack-pop env)))
+    (log:debug "then ticks o:~s n:~s" old-tick (env-tick env))
+    (rplaca word (- (env-tick env) old-tick))))
+
+(define-word push t nil
+  (let ((place (stack-pop env))
+	(val (stack-pop env)))
+    (push val
+	  (gethash place (env-variables env)))))
+(define-word pop t nil
+  (stack-push
+   (pop
+    (gethash (stack-pop env) (env-variables env)))
+   env))
+(define-word ?skip t nil
+  (progn
+    (nswap stack env)
+    (let ((test (stack-pop env))
+	  (amount (stack-pop env)))
+     (if (eq nil test)
+	 (skip amount env)))))
+(define-word skip  t nil
+  (skip (stack-pop env) env))
 
 (define-word rec  t nil
   (progn (push :recurse (env-rstack env))

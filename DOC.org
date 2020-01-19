@@ -50,3 +50,6 @@ application is layered on top of.
 
     This seems like a lot of work compared to the hashtable of
     variables I have now.
+
+* Sending to another env.
+  `thing env send`

@@ -47,6 +47,7 @@
   ((3) ": foo 2 skip 1 2 3 ; foo")
   ((1) "1 fa ! fa @")
   ((1) ": quz qw ! ; 1 quz qw @")
+  ((3) "1 a push 2 a push a pop a pop +")
   ((120) ": not if nil else t then ; : fac dup 0 = not if dup a ! * a @ 1 - rec then drop ; 1 5 fac")
   ((120) ": not if nil else t then ; : fac dup 0 = not if dup >r * r> 1 - rec then drop ; 1 5 fac"))
 
