@@ -1,4 +1,7 @@
 ;;;; package.lisp
 
 (defpackage #:forward
-  (:use #:cl))
+  (:use #:cl)
+  (:export :new-env
+	   :run-str
+	   :load-file))
