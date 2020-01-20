@@ -203,12 +203,21 @@
   (setf (env-skipp env) t)
   (setf (env-nb-skip env) nb))
 
-(defmacro define-word (name core immediate body)
-  `(progn
-     (setf *base-dictionary*
-	   (remove-if #'(lambda (el) (eq ',name (car el))) *base-dictionary*))
-     (push '(,name ,core ,immediate ,body)
-	   *base-dictionary*)))
+(defun clean-name (symbol)
+  (case symbol
+    (|:| 'colon)
+    (|;| 'semi-col)
+    (otherwise symbol)))
+
+(defmacro define-word (name core immediate &body body)
+  (let* ((real-name (clean-name name))
+	 (fn-name (symb "FW-" real-name)))
+    `(progn
+       (defun ,fn-name (env) ,@body)
+       (setf *base-dictionary*
+	     (remove-if #'(lambda (el) (eq ',name (car el))) *base-dictionary*))
+       (push '(,name ,core ,immediate ,fn-name)
+	     *base-dictionary*))))
 
 
 (defun build-dictionary (env)
@@ -217,9 +226,7 @@
   (dolist (new-word *base-dictionary*)
     (multiple-value-bind (name core immediate body) (values-list new-word)
       (push (make-word :name name
-		       :code (if core
-				 (eval `(lambda (env) ,body))
-				 body)
+		       :code body
 		       :here (length (env-dictionary env))
 		       :core core
 		       :immediate immediate)
@@ -269,7 +276,7 @@
 (define-word q  t nil
   (setf (env-exit env) t))
 (define-word code  t nil
-  (print (code (stack-pop env))))
+  (print (code (stack-pop env) env)))
 (define-word _  t nil
   (print (stack-pop env)))
 (define-word =  t nil
@@ -334,11 +341,10 @@
     (setf (env-state env) :compile))
 
 (define-word |;|  t t
-  (progn
-    (setf (env-state env) :interpret)
-    (add-word (word-name (env-defining env))
-	      (nreverse (word-code (env-defining env)))env)
-    (setf (env-defining env) nil)))
+  (setf (env-state env) :interpret)
+  (add-word (word-name (env-defining env))
+	    (nreverse (word-code (env-defining env)))env)
+  (setf (env-defining env) nil))
 
 (define-word |!| t nil
   (let ((var (stack-pop env))
