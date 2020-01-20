@@ -25,6 +25,11 @@
   (let ((sname (symb  "ENV-" (symbol-name stack))))
     `(setf (,sname ,env) (swap (,sname ,env)))))
 
+(defun code (sym env)
+  (let (res)
+    (setf res (mapcar #'(lambda (w) (if (word-p w) (word-name w) w)) (word-code (find-word sym env))))
+    res))
+
 (defstruct word
   name code here core immediate)
 (defstruct env
@@ -77,7 +82,7 @@
 		       :variables (make-hash-table)
 		       :state :interpret)))
     (build-dictionary env)
-    (load-file *stdlib-path* env)
+    ;; (load-file *stdlib-path* env)
     env))
 
 (defun forward ()
@@ -180,19 +185,19 @@
    recurse
      (dolist (w word)
        (incf (env-tick env))
-       (log:debug (env-rstack env))
+       (log:debug "Running here ~s ~s" w (env-stack env))
        (if (> (env-nb-skip env) 0)
 	   (progn
 	     (log:debug "skipping ~s" w)
 	     (decf (env-nb-skip env)))
 	   (multiple-value-bind (entry exist) (find-word w env)
 	     (declare (ignore exist))
+	     (log:debug (env-state env))
+	     (run-word entry env)
 	     (when (eq :recurse (car (env-rstack env)))
 	       (log:debug "recured")
 	       (pop (env-rstack env))	;pop :recurse
-	       (go recurse))
-	     (log:debug (env-state env))
-	     (run-word entry env))))))
+	       (go recurse)))))))
 
 (defun skip (nb env)
   (setf (env-skipp env) t)
@@ -264,9 +269,7 @@
 (define-word q  t nil
   (setf (env-exit env) t))
 (define-word code  t nil
-  (let (res)
-    (setf res (mapcar #'(lambda (w) (if (word-p w) (word-name w) w)) (word-code (find-word (stack-pop env) env))))
-    (print res)))
+  (print (code (stack-pop env))))
 (define-word _  t nil
   (print (stack-pop env)))
 (define-word =  t nil
@@ -322,8 +325,10 @@
   (skip (stack-pop env) env))
 
 (define-word rec  t nil
-  (progn (push :recurse (env-rstack env))
-	 (setf (env-rstack env) (swap (env-rstack env)))))
+  (progn
+    (log:debug "recurseeed")
+    (push :recurse (env-rstack env))
+    (nswap rstack env)))
 
 (define-word |:|  t nil
     (setf (env-state env) :compile))
