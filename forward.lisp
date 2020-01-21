@@ -57,17 +57,22 @@
 (defun find-all-words (name env)
   (let (res)
     (dowords (w env)
-      (when (equal name (word-name w))
+      (when (equal (symbol-name name) (symbol-name (word-name w)))
 	(push w res)))
     res))
 
 (defun find-word (name env &optional (array-index nil))
   "Returns (values name t/nil) if exists."
+  (unless (or (eq (type-of name) 'symbol)
+	      (eq (type-of name) 'word))
+    (return-from find-word (values name nil)))
+  (when (eq (type-of name) 'word)
+    (setf name (word-name name)))
   (unless array-index
     (setf array-index (length (env-dictionary env))))
   (dolist (word (subseq (env-dictionary env) (- (length (env-dictionary env)) array-index)))
-    ;; (log:debug word)
-    (when (equal name (word-name word))
+    ;; (log:debug (symbol-name name) (symbol-name (word-name word)))
+    (when (equal (symbol-name name) (symbol-name (word-name word)))
       (return-from find-word (values word t))))
   (values name nil))
 
