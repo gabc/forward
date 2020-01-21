@@ -87,7 +87,7 @@
 		       :variables (make-hash-table)
 		       :state :interpret)))
     (build-dictionary env)
-    ;; (load-file *stdlib-path* env)
+    (load-file *stdlib-path* env)
     env))
 
 (defun forward ()
@@ -112,8 +112,9 @@
     (number
      (stack-push word env))
     (cons
-     (when (eq (car word) 'QUOTE)
-       (stack-push (car (cdr word)) env)))
+     (if (eq (car word) 'QUOTE)
+	 (stack-push (car (cdr word)) env)
+	 (stack-push word env)))
     (symbol
      (log:debug "Is symbol ~s" word)
      (stack-push word env))
@@ -132,8 +133,9 @@
 	 (compile-new-word word env)
 	 (push word (word-code (env-defining env)))))
     (cons
-     (when (eq (car word) 'QUOTE)
-       (push (car (cdr  word)) (word-code (env-defining env)))))
+     (if (eq (car word) 'QUOTE)
+	 (push (car (cdr  word)) (word-code (env-defining env)))
+	 (push word (word-code (env-defining env)))))
     (number
      (push word (word-code (env-defining env))))
     (word
@@ -151,8 +153,12 @@
 (defun compile-new-word (word env)
   (when (not (env-defining env))
     (log:debug word)
-    (setf (env-defining env) (make-word :name word :core nil
-					:here (length (env-dictionary env))))))
+    (let (name)
+      (if (eq (type-of word) 'word)
+	  (setf name (word-name word))
+	  (setf name word))
+      (setf (env-defining env) (make-word :name name :core nil
+					  :here (length (env-dictionary env)))))))
 
 (defun load-file (path env)
   (with-open-file (fd path)
@@ -284,8 +290,21 @@
   (print (code (stack-pop env) env)))
 (define-word _  t nil
   (print (stack-pop env)))
+(define-word call t nil
+  (let ((fn (stack-pop env))
+	(arg (stack-pop env)))
+    (log:debug "Fn calling ~s with ~s, res: ~s" fn arg (funcall fn arg))
+    (stack-push (funcall fn arg) env)))
+(define-word each t nil
+  (let ((list (stack-pop env))
+	(word (stack-pop env)))
+    (dolist (l (reverse list))
+      (stack-push l env)
+      (run (list word) env))))
+(define-word eql t nil
+  (stack-push (equal (stack-pop env) (stack-pop env)) env))
 (define-word =  t nil
-    (stack-push (= (stack-pop env) (stack-pop env)) env))
+  (stack-push (= (stack-pop env) (stack-pop env)) env))
 (define-word clear  t nil
   (setf (env-stack env) nil))
 
@@ -316,6 +335,19 @@
     ;; Remove 1 because then will not appear in the word.
     (rplaca word (- (env-tick env) old-tick 1))))
 
+(define-word hget t nil
+  ;; key my-hash hget
+  (let ((place (stack-pop env))
+	(key (stack-pop env)))
+    (stack-push (gethash key (gethash place (env-variables env))) env)))
+(define-word hset t nil
+  ;; val key my-hash hset
+  (let ((place (stack-pop env))
+	(key (stack-pop env))
+	(val (stack-pop env)))
+    (unless (gethash place (env-variables env))
+      (setf (gethash place (env-variables env)) (make-hash-table)))
+    (setf (gethash key (gethash place (env-variables env))) val)))
 (define-word push t nil
   (let ((place (stack-pop env))
 	(val (stack-pop env)))
