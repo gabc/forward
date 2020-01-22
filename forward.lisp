@@ -168,17 +168,16 @@
 
 (defun run-str (str env)
   (with-open-stream (s (make-string-input-stream str))
-    (setf (env-stream env) s)
-    (setf *exit-flag* nil)
-    (let (words)
-      (handler-case
-	  (loop while (not *exit-flag*)
-	     do
-	       (let ((word (forth-read env)))
-		 (push word words)))
-	(end-of-file (c)
-	  (declare (ignore c))))
-      (run (reverse words) env))))
+		    (setf (env-stream env) s)
+		    (let (words)
+		      (handler-case
+			  (loop while (not (env-exit env))
+				do
+				(let ((word (forth-read env)))
+				  (push word words)))
+			(end-of-file (c)
+				     (declare (ignore c))))
+		      (run (reverse words) env))))
 
 (defun run-word (word env)
   (log:debug word)
@@ -231,6 +230,14 @@
 	     *base-dictionary*))))
 
 
+
+
+(set-macro-character #\: (lambda (stream char) '|:|) t *forth-readtable*)
+(set-macro-character #\; (lambda (stream char) '|;|) t *forth-readtable*)
+
+;;; Words.
+(defvar *base-dictionary* nil)
+
 (defun build-dictionary (env)
   "Builds new dictionary for the env, ENV"
   (setf (env-dictionary env) nil)
@@ -242,12 +249,6 @@
 		       :core core
 		       :immediate immediate)
 	    (env-dictionary env)))))
-
-(set-macro-character #\: (lambda (stream char) '|:|) t *forth-readtable*)
-(set-macro-character #\; (lambda (stream char) '|;|) t *forth-readtable*)
-
-;;; Words.
-(defvar *base-dictionary* nil)
 
 (define-word s  t nil
   (format t "~s" (reverse (env-stack env))))
