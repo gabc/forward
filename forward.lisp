@@ -298,8 +298,10 @@
 (define-word each t nil
   (let ((list (stack-pop env))
 	(word (stack-pop env)))
+    (log:debug "Each-pre ~S ~S" list word)
     (dolist (l (reverse list))
       (stack-push l env)
+      (log:debug "Eaching: ~s ~s" l (env-stack env))
       (run (list word) env))))
 (define-word eql t nil
   (stack-push (equal (stack-pop env) (stack-pop env)) env))
@@ -391,3 +393,9 @@
 (define-word |@| t nil
   (let ((var (stack-pop env)))
     (stack-push (gethash var (env-variables env)) env)))
+(define-word and t nil
+  (stack-push (and (stack-pop env)
+		   (stack-pop env))
+   env))
+(define-word d t nil
+  (log:debug "In ~s: stack: ~s" (word-name (second (env-rstack env))) (env-stack env)))
