@@ -5,15 +5,11 @@
 (defvar *forth-readtable* (copy-readtable))
 (defvar *stdlib-path* (merge-pathnames #P"lib.fw" *default-pathname-defaults*))
 
-(defun mkstr (&rest args)
-  (with-output-to-string (s)
-    (dolist (a args) (princ a s))))
 
-(defun symb (&rest args)
-  (values (intern (apply #'mkstr args))))
 
 (defun stack-push (value env)
   (push value (env-stack env)))
+
 (defun stack-pop (env)
   (pop (env-stack env)))
 (defun swap (stack)
@@ -35,7 +31,7 @@
 (defstruct env
   rstack stack dictionary current-word stream
   exit state nb-skip skipp defining variables
-  tick)
+  tick prof)
 
 (defun add-word (name code env &optional (core nil) immediate)
   (let ((new-word (make-word :name name
@@ -84,6 +80,7 @@
   (let ((env (make-env :stream stream
 		       :nb-skip 0
 		       :tick 0
+		       :prof (make-hash-table)
 		       :variables (make-hash-table)
 		       :state :interpret)))
     (build-dictionary env)
@@ -161,10 +158,13 @@
 					  :here (length (env-dictionary env)))))))
 
 (defun load-file (path env)
-  (with-open-file (fd path)
-    (loop for line = (read-line fd nil nil)
-       while line
-       do (run-str line env))))
+  (handler-case
+      (with-open-file (fd path)
+	(loop for line = (read-line fd nil nil)
+	   while line
+	   do (run-str line env)))
+    (error (err)
+	(cerror "The file does not exists." err))))
 
 (defun run-str (str env)
   (with-open-stream (s (make-string-input-stream str))
@@ -190,10 +190,22 @@
      (log:debug (when (env-defining env) (word-code (env-defining env))))
      (assemble word env))))
 
+(defun profile-total (env)
+  (let ((res 0))
+    (loop for k being each hash-key of (env-prof env)
+       do (setf res (+ res (gethash k (env-prof env)))))))
+
+(defun profile (word env)
+  (let ((place (gethash word (env-prof env))))
+    (if (eq (type-of place) 'number)
+	(incf place)
+	(setf place 1))))
+
 (defun run (word env)
   (tagbody
    recurse
      (dolist (w word)
+       (profile w env)
        (incf (env-tick env))
        (log:debug "Running here ~s ~s" w (env-stack env))
        (if (> (env-nb-skip env) 0)
@@ -212,12 +224,6 @@
 (defun skip (nb env)
   (setf (env-skipp env) t)
   (setf (env-nb-skip env) nb))
-
-(defun clean-name (symbol)
-  (case symbol
-    (|:| 'colon)
-    (|;| 'semi-col)
-    (otherwise symbol)))
 
 (defmacro define-word (name core immediate &body body)
   (let* ((real-name (clean-name name))

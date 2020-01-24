@@ -8,6 +8,7 @@
   :serial t
   :depends-on (:log4cl :fiveam)
   :components ((:file "package")
+	       (:file "utils")
                (:file "forward")
 	       (:file "forward-test")))
 
