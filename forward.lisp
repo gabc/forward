@@ -304,8 +304,8 @@
     (log:debug "Fn calling ~s with ~s, res: ~s" fn arg (funcall fn arg))
     (stack-push (funcall fn arg) env)))
 (define-word each t nil
-  (let ((list (stack-pop env))
-	(word (stack-pop env)))
+  (let ((word (stack-pop env))
+	(list (stack-pop env)))
     (log:debug "Each-pre ~S ~S" list word)
     (dolist (l (reverse list))
       (stack-push l env)
