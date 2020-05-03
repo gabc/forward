@@ -18,7 +18,8 @@
   (run-str str env)
   (env-stack env))
 
-(defvar *all-test* nil)
+(eval-when (:compile-toplevel :load-toplevel :execute)
+ (defvar *all-test* nil))
 (defmacro deftest (name &body tests)
   (let (res)
     (pushnew name *all-test*)
