@@ -311,6 +311,18 @@
       (stack-push l env)
       (log:debug "Eaching: ~s ~s" l (env-stack env))
       (run (list word) env))))
+(define-word each2 t nil
+  (let ((word (stack-pop env))
+	(list (stack-pop env))
+        (list2 (stack-pop env)))
+    (log:debug "Each-pre ~S ~S" list word)
+    (loop for l in (reverse list)
+       for k in (reverse list2)
+       do
+         (stack-push l env)
+         (stack-push k env)
+         (log:debug "Eaching: ~s ~s" l (env-stack env))
+         (run (list word) env))))
 (define-word eql t nil
   (stack-push (equal (stack-pop env) (stack-pop env)) env))
 (define-word =  t nil
