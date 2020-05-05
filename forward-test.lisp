@@ -19,7 +19,7 @@
   (env-stack env))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
- (defvar *all-test* nil))
+  (defvar *all-test* '(utils)))
 (defmacro deftest (name &body tests)
   (let (res)
     (pushnew name *all-test*)
@@ -31,6 +31,10 @@
     `(5am:test ,name
 	       ,@res)))
 
+(5am:test utils
+  (5am:is (= 2 (extract-rank '(() ()))))
+  (5am:is (= 1 (extract-rank '(1))))
+  (5am:is (= 0 (extract-rank 1))))
 (deftest
     forward1
   ((2) "1 1 +")
@@ -58,7 +62,8 @@
   ((120) ": not if nil else t then ; : fac dup 0 = not if dup >r * r> 1 - rec then drop ; 1 5 fac")
   ((12) "12 a hash hset a hash hget")
   ((2 3 4) ": 1+ 1 + ; (1 2 3) '1+ each")
-  ((2 4 6) ": s1  + ; '(1 2 3) '(1 2 3) 's1 each2"))
+  ((2 4 6) ": s1  + ; '(1 2 3) '(1 2 3) 's1 each2")
+  (nil ": s1  + ; '(1 2 3) '(1 3) 's1 each2"))
 
 (deftest
     ifs
