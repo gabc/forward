@@ -4,7 +4,7 @@
 (declaim (optimize (speed 0) (space 0) (debug 3)))
 (defvar *forth-readtable* (copy-readtable))
 (defvar *stdlib-path* (merge-pathnames #P"lib.fw" *default-pathname-defaults*))
-
+(setf *stdlib-path* nil)
 
 
 (defun stack-push (value env)
@@ -85,7 +85,7 @@
 		       :variables (make-hash-table)
 		       :state :interpret)))
     (build-dictionary env)
-    (load-file *stdlib-path* env)
+    ;(load-file *stdlib-path* env)
     env))
 
 (defun forward ()
@@ -303,6 +303,11 @@
 	(arg (stack-pop env)))
     (log:debug "Fn calling ~s with ~s, res: ~s" fn arg (funcall fn arg))
     (stack-push (funcall fn arg) env)))
+(define-word cat t nil
+  (let* ((ar1 (stack-pop env))
+         (ar2 (stack-pop env)))
+    (stack-push (list ar2 ar1) env)))
+
 (define-word each t nil
   (let* ((word (stack-pop env))
 	 (list (stack-pop env))
@@ -321,8 +326,8 @@
           (dotimes (j rank)
             (stack-push (nth (- (- (length (car list)) i) 1) (nth j list))
                         env))
-            (log:debug "Eaching: ~s ~s" i (env-stack env))
-            (run (list word) env)))))
+          (log:debug "Eaching: ~s ~s" i (env-stack env))
+          (run (list word) env)))))
 (define-word eql t nil
   (stack-push (equal (stack-pop env) (stack-pop env)) env))
 (define-word =  t nil
