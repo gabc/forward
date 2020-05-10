@@ -311,6 +311,7 @@
 (define-word each t nil
   (let* ((word (stack-pop env))
 	 (list (stack-pop env))
+         (newlist '())
          (rank (extract-rank list)))
     (log:debug "Each-pre ~S ~S" list word)
     (when (> rank 1)
@@ -321,13 +322,16 @@
         (dolist (l (reverse list))
           (stack-push l env)
           (log:debug "Eaching: ~s ~s" l (env-stack env))
-          (run (list word) env))
+          (run (list word) env)
+          (push (stack-pop env) newlist)) 
         (dotimes (i (length (car list)))
           (dotimes (j rank)
             (stack-push (nth (- (- (length (car list)) i) 1) (nth j list))
                         env))
           (log:debug "Eaching: ~s ~s" i (env-stack env))
-          (run (list word) env)))))
+          (run (list word) env)
+          (push (stack-pop env) newlist)))
+    (stack-push newlist env)))
 (define-word eql t nil
   (stack-push (equal (stack-pop env) (stack-pop env)) env))
 (define-word =  t nil

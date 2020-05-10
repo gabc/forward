@@ -62,10 +62,13 @@
   ((120) ": not if nil else t then ; : fac dup 0 = not if dup a ! * a @ 1 - rec then drop ; 1 5 fac")
   ((120) ": not if nil else t then ; : fac dup 0 = not if dup >r * r> 1 - rec then drop ; 1 5 fac")
   ((12) "12 a hash hset a hash hget")
-  ((2 3 4) ": 1+ 1 + ; (1 2 3) '1+ each")
-  ((2 3 4) "((1 2 3) (1 1 1)) '+ each")
-  ((3 4 5) ": ok + + ; ((1 1 1) (1 2 3) (1 1 1)) 'ok each")
-  ((((1 2 3) (2 3 4))) "(1 2 3) (2 3 4) cat"))
+  (((2 3 4)) ": 1+ 1 + ; (1 2 3) '1+ each")
+  (((2 3 4)) "((1 2 3) (1 1 1)) '+ each")
+  (((3 4 5)) ": 1+ 1 + ; (1 2 3) '1+ each '1+ each")
+  (((3 4 5)) ": ok + + ; ((1 1 1) (1 2 3) (1 1 1)) 'ok each")
+  ((((1 2 3) (2 3 4))) "(1 2 3) (2 3 4) cat")
+  (((2 3 4)) "(1 2 3) (1 1 1) cat '+ each")
+  (((3 4 5)) ": 1+ 1 + ; (1 2 3) (1 1 1) cat '+ each '1+ each"))
 
 (deftest
     ifs
