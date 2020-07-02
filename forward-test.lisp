@@ -42,7 +42,7 @@
   ((2 1) "1 1 1 +")
   ((3) "1 1 1 + +")
   ((8) "2 2 2 + *")
-  ((8) "2 2 2 + *"": foo 2 2 + ; 2 foo *"))
+  ((8) "2 2 2 + *"))
 
 (deftest
     tricky
@@ -51,6 +51,7 @@
   ((4 2) ": foo 2 ; : bar foo ; bar : foo 4 ; bar")
   ((1 1) ": a 1 ; : b a ; : c b ; : d c ; : e d ; a e")
   ((3) "2 skip 1 2 3")
+  ((8) ": foo 2 2 + ; 2 foo *")
   ((0) ": foo dup 0 = if 0 else 1 - rec then drop ; 4 foo")
   ;; We had an issue, if rec is the last word the evaluation stops.
   ((0 0) ": foo dup 0 = if 0 else 1 - rec then ; 4 foo")
