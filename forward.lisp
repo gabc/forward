@@ -91,10 +91,12 @@
 (defun forward ()
   (let ((env (new-env *standard-input*)))
     (loop while (not (env-exit env))
-       do
-	 (let ((word (forth-read env)))
-	   (run (list word) env)))
-    env))
+          do
+             (progn
+               (format *standard-output* "~A > " (reverse (env-stack env)))
+               (finish-output *standard-output*)
+	       (let ((word (forth-read env)))
+	         (run (list word) env))))))
 
 (defmacro with-rstack (word env &body body)
   `(progn
@@ -258,10 +260,10 @@
 	    (env-dictionary env)))))
 
 (define-word s  t nil
-  (format t "~s" (reverse (env-stack env))))
+  (format *standard-output* "~s" (reverse (env-stack env))))
 
 (define-word rs  t nil
-  (format t "~s" (reverse (env-rstack env))))
+  (format nil "~s" (reverse (env-rstack env))))
 
 (define-word >r  t nil
   (progn
